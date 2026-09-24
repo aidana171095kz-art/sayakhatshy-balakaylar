@@ -1,0 +1,38 @@
+import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
+import { initialState, loadState, reducer, saveState, totalScore, type Action, type GameState } from './state';
+
+interface GameContextValue {
+  state: GameState;
+  dispatch: (a: Action) => void;
+  total: number;
+}
+
+const GameContext = createContext<GameContextValue | null>(null);
+
+const storage = (): Storage | undefined => {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
+};
+
+export function GameProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, initialState, () => loadState(storage()));
+  useEffect(() => saveState(storage(), state), [state]);
+  const value = useMemo(() => ({ state, dispatch, total: totalScore(state) }), [state]);
+  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
+}
+
+export function useGame() {
+  const ctx = useContext(GameContext);
+  if (!ctx) throw new Error('useGame must be used inside <GameProvider>');
+  return ctx;
+}
+
+/** Экранның ішкі күйін оқу/жазу (reset кезінде орталықтан тазаланады). */
+export function useScreenState<T>(screen: number, fallback: T): [T, (v: T) => void] {
+  const { state, dispatch } = useGame();
+  const value = (state.screenState[screen] as T | undefined) ?? fallback;
+  return [value, (v: T) => dispatch({ type: 'setScreenState', screen, value: v })];
+}
