@@ -11,11 +11,12 @@ from PIL import Image
 SRC = pathlib.Path('asset-src'); OUT = pathlib.Path('src/assets')
 MAX_EDGE = {'bg': 1920}  # backgrounds full-HD; everything else below
 DEFAULT_EDGE = 1100
+ITEM_EDGE = 520  # small objects shown on cards
 
 def process(p: pathlib.Path):
     asset_id = p.stem
     im = Image.open(p)
-    edge = MAX_EDGE.get(asset_id.split('.')[0], DEFAULT_EDGE)
+    edge = MAX_EDGE.get(asset_id.split('.')[0], ITEM_EDGE if asset_id.startswith('item.') else DEFAULT_EDGE)
     im.thumbnail((edge, edge), Image.LANCZOS)
     if im.mode == 'RGBA':
         arr = np.array(im)
