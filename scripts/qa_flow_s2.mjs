@@ -28,12 +28,25 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   check('8 зат Word ретімен', JSON.stringify(await page.locator('[data-testid^="item-"]').evaluateAll((e) => e.map((x) => x.dataset.testid.slice(5)))) === JSON.stringify(['карта','кітап','билет','доп','қалам','төлқұжат','балмұздақ','су']));
   check('үлгі жауап бастапқыда жабық', (await page.getByTestId('example').count()) === 0);
 
-  await page.getByTestId('item-карта').click(); await page.waitForTimeout(400);
-  check('басу → карта сөмкеде', JSON.stringify(await bagWords()) === '["карта"]');
+  await page.getByTestId('item-карта').click();
+  await page.waitForTimeout(150);
+  check('басу → карта сөмкеге ұшады (flight анимациясы бар)', (await page.getByTestId('flight').count()) === 1);
+  await page.waitForTimeout(800);
+  check('ұшу аяқталды, flight жоғалды', (await page.getByTestId('flight').count()) === 0);
+  check('басу → карта сөмкеде, белгісі жасыл', JSON.stringify(await bagWords()) === '["карта"]' && (await page.getByTestId('item-карта').getAttribute('data-state')) === 'in-bag');
+  await page.getByTestId('item-доп').click(); await page.waitForTimeout(600);
+  check('доп → қызыл (қате), сөмкеге түспейді', (await page.getByTestId('item-доп').getAttribute('data-state')) === 'wrong' && !(await bagWords()).includes('доп'));
+  await drag('[data-testid="item-балмұздақ"]', '[data-testid="bag-drop"]');
+  check('балмұздақты рюкзакқа сүйреу → қызыл (қате), сөмкеге түспейді', (await page.getByTestId('item-балмұздақ').getAttribute('data-state')) === 'wrong' && !(await bagWords()).includes('балмұздақ'));
+  await page.screenshot({ path: `${out}/s2-wrong-${vw}.png` });
+  for (let i = 0; i < 3; i++) await page.getByTestId('item-доп').click();
+  await page.waitForTimeout(600);
+  check('қате затты қайта басу да сөмкеге салмайды', !(await bagWords()).includes('доп'));
   await drag('[data-testid="item-су"]', '[data-testid="bag-drop"]');
+  await page.waitForTimeout(500);
   check('сүйреу → су сөмкеде', JSON.stringify(await bagWords()) === '["карта","су"]');
-  await drag('[data-testid="item-доп"]', '[data-testid="sentence-slot"]');
-  check('рюкзактан тыс жерге сүйреу → сөмкеге түспейді', !(await bagWords()).includes('доп'));
+  await drag('[data-testid="item-кітап"]', '[data-testid="sentence-slot"]');
+  check('рюкзактан тыс жерге сүйреу → сөмкеге түспейді', !(await bagWords()).includes('кітап'));
   for (let i = 0; i < 4; i++) await page.getByTestId('item-карта').click();
   await page.waitForTimeout(300);
   const afterToggle = await bagWords();
@@ -68,7 +81,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
 
   await page.getByText('Тапсырманы reset').click(); await page.waitForTimeout(400);
   await page.waitForTimeout(800); // exit-анимациялар аяқталуы үшін
-  check('тапсырманы reset: балл 0, сөмке бос, үлгі жабық', (await score()) === '0 / 10' && (await bagWords()).length === 0 && (await sentences()).length === 0 && (await page.getByTestId('example').count()) === 0);
+  check('тапсырманы reset: балл 0, сөмке бос, үлгі жабық, қызыл белгі жоқ', (await score()) === '0 / 10' && (await bagWords()).length === 0 && (await sentences()).length === 0 && (await page.getByTestId('example').count()) === 0 && (await page.locator('[data-state="wrong"]').count()) === 0);
   check(`console/page errors: ${errors.length ? errors : 'none'}`, errors.length === 0);
   await page.close();
 }

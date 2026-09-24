@@ -1,11 +1,28 @@
 import { useRef, useState, type PointerEvent } from 'react';
 import { STAGE_W } from './Stage';
 
+/** Сахнаның логикалық координаттарындағы (1920×1080) тіктөртбұрыш */
+export interface StageRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function toStageRect(el: Element): StageRect {
+  const r = el.getBoundingClientRect();
+  const stage = document.querySelector('[data-stage]')?.getBoundingClientRect();
+  const scale = stage ? stage.width / STAGE_W : 1;
+  const ox = stage?.left ?? 0;
+  const oy = stage?.top ?? 0;
+  return { x: (r.left - ox) / scale, y: (r.top - oy) / scale, w: r.width / scale, h: r.height / scale };
+}
+
 interface Options {
-  /** Сүйреп апарып, data-drop="<id>" элементінің үстіне тастағанда */
-  onDrop: (targetId: string) => void;
-  /** Жай басқанда (сүйремей) */
-  onTap?: () => void;
+  /** Сүйреп апарып, data-drop="<id>" элементінің үстіне тастағанда. from — тасталған сәттегі орны */
+  onDrop: (targetId: string, from: StageRect) => void;
+  /** Жай басқанда (сүйремей). from — элементтің орны */
+  onTap?: (from: StageRect) => void;
   /** Сүйреп келе жатқанда астындағы нысана (жарықтандыру үшін) */
   onOver?: (targetId: string | null) => void;
   disabled?: boolean;
@@ -61,17 +78,18 @@ export function useStageDrag({ onDrop, onTap, onOver, disabled, noDrag }: Option
     },
     onPointerUp(e: PointerEvent<HTMLElement>) {
       const s = start.current;
+      const from = toStageRect(e.currentTarget);
       reset();
       if (!s) return;
-      if (!s.moved) return onTap?.();
+      if (!s.moved) return onTap?.(from);
       const target = dropTargetAt(e.clientX, e.clientY);
-      if (target) onDrop(target);
+      if (target) onDrop(target, from);
     },
     onPointerCancel: reset,
     /** Пернетақта (Enter/Space) — басумен бірдей */
-    onClick(e: { detail: number; preventDefault: () => void }) {
+    onClick(e: { detail: number; preventDefault: () => void; currentTarget: Element }) {
       e.preventDefault();
-      if (e.detail === 0 && !disabled) onTap?.();
+      if (e.detail === 0 && !disabled) onTap?.(toStageRect(e.currentTarget));
     },
   };
 

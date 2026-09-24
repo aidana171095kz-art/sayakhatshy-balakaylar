@@ -2,7 +2,8 @@ import { AnimatePresence, motion, useAnimationControls } from 'framer-motion';
 import { useState } from 'react';
 import { Asset } from '../components/Asset';
 import { NavBar } from '../components/NavBar';
-import { useStageDrag } from '../components/useStageDrag';
+import { useStageDrag, type StageRect } from '../components/useStageDrag';
+import { BAG_NOT_NEEDED } from '../content/decisions';
 import { lesson } from '../content/lesson';
 import type { AssetId } from '../assets/manifest';
 import { useGame, useScreenState } from '../game/GameProvider';
@@ -30,31 +31,59 @@ interface BagState {
   sentences: Word[];
   /** Қазір сөйлем жолында тұрған зат */
   current?: Word;
+  /** Оқушы таңдаған, бірақ саяхатқа қажет емес заттар (қызылмен белгіленеді) */
+  wrong?: Word[];
 }
 
 const EMPTY: BagState = { bag: [], sentences: [] };
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 } as const;
 
+const isNeeded = (w: Word) => !(BAG_NOT_NEEDED as readonly string[]).includes(w);
+
+/** Рюкзактың ашық аузы — ұшып келген зат осында түседі (сахна координаттары) */
+const BAG_MOUTH = { x: 530, y: 300 };
+const FLIGHT_S = 0.6;
+
+interface Flight {
+  key: number;
+  word: Word;
+  from: StageRect;
+}
+
 /**
  * SCREEN 2 — Саяхатшының сөмкесі.
- * Word-та «қажетті/қажетсіз» деген жауап кілті жоқ, сондықтан экран дұрыс/қате деп
- * бағаламайды: оқушы таңдайды және сөйлем құрайды, баллды мұғалім қояды.
+ * Қажетті зат рюкзакқа ұшып түседі; қажет емес зат (доп, балмұздақ — автор шешімі,
+ * content/decisions.ts) қызылмен белгіленіп, шайқалады және сөмкеге түспейді.
+ * Балл мұғалім арқылы қойылады (Teacher Mode).
  */
 export function Bag() {
   const { state } = useGame();
   const [data, setData] = useScreenState<BagState>(SCREEN, EMPTY);
   const [over, setOver] = useState<string | null>(null);
+  const [flights, setFlights] = useState<Flight[]>([]);
   const bagShake = useAnimationControls();
   const revealed = !!state.revealed[SCREEN];
+  const wrong = data.wrong ?? [];
 
-  const putInBag = (w: Word) => {
-    if (data.bag.includes(w)) return;
+  /** 'ok' — сөмкеге салынды; 'wrong' — қажет емес зат; 'skip' — бұрыннан сөмкеде */
+  const putInBag = (w: Word, from: StageRect): 'ok' | 'wrong' | 'skip' => {
+    if (!isNeeded(w)) {
+      if (!wrong.includes(w)) setData({ ...data, wrong: [...wrong, w] });
+      return 'wrong';
+    }
+    if (data.bag.includes(w)) return 'skip';
     setData({ ...data, bag: [...data.bag, w] });
-    bagShake.start({ rotate: [0, -4, 4, -2, 0], scale: [1, 1.05, 1], transition: { duration: 0.5 } });
+    setFlights((f) => [...f, { key: Date.now() + Math.random(), word: w, from }]);
+    return 'ok';
+  };
+  const land = (key: number) => {
+    setFlights((f) => f.filter((x) => x.key !== key));
+    bagShake.start({ rotate: [0, -4, 4, -2, 0], scale: [1, 1.06, 1], transition: { duration: 0.5 } });
   };
   const takeOut = (w: Word) =>
     setData({
+      ...data,
       bag: data.bag.filter((x) => x !== w),
       sentences: data.sentences.filter((x) => x !== w),
       current: data.current === w ? undefined : data.current,
@@ -97,7 +126,7 @@ export function Bag() {
         <div className="flex flex-1 flex-wrap content-start items-start gap-3" data-testid="bag-contents">
           <AnimatePresence>
             {data.bag.map((w) => (
-              <BagChip key={w} word={w} used={data.sentences.includes(w)} onUse={() => buildSentence(w)} onRemove={() => takeOut(w)} onOver={setOver} />
+              <BagChip key={w} word={w} landing={flights.some((f) => f.word === w)} used={data.sentences.includes(w)} onUse={() => buildSentence(w)} onRemove={() => takeOut(w)} onOver={setOver} />
             ))}
           </AnimatePresence>
         </div>
@@ -114,7 +143,16 @@ export function Bag() {
 
       <div className="absolute left-[860px] top-[260px] grid w-[1000px] grid-cols-4 gap-6">
         {lesson.bag.words.map((w, i) => (
-          <ItemCard key={w} word={w} index={i} inBag={data.bag.includes(w)} onPut={() => putInBag(w)} onRemove={() => takeOut(w)} onOver={setOver} />
+          <ItemCard
+            key={w}
+            word={w}
+            index={i}
+            inBag={data.bag.includes(w)}
+            wrong={wrong.includes(w)}
+            onPut={(from) => putInBag(w, from)}
+            onRemove={() => takeOut(w)}
+            onOver={setOver}
+          />
         ))}
       </div>
 
@@ -181,6 +219,28 @@ export function Bag() {
         </div>
       </div>
 
+      {/* Сөмкеге ұшып бара жатқан заттар */}
+      {flights.map((f) => (
+        <motion.div
+          key={f.key}
+          data-testid="flight"
+          className="pointer-events-none absolute z-[70]"
+          style={{ left: f.from.x, top: f.from.y, width: f.from.w, height: f.from.h }}
+          initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+          animate={{
+            x: [0, (BAG_MOUTH.x - f.from.x - f.from.w / 2) * 0.55, BAG_MOUTH.x - f.from.x - f.from.w / 2],
+            y: [0, BAG_MOUTH.y - f.from.y - f.from.h / 2 - 160, BAG_MOUTH.y - f.from.y - f.from.h / 2],
+            scale: [1, 0.8, 0.25],
+            rotate: [0, -12, 8],
+            opacity: [1, 1, 0.2],
+          }}
+          transition={{ duration: FLIGHT_S, ease: 'easeInOut', times: [0, 0.5, 1] }}
+          onAnimationComplete={() => land(f.key)}
+        >
+          <Asset id={ITEM_ASSET[f.word]} className="h-full w-full p-4 drop-shadow-[0_16px_16px_rgba(18,53,91,.3)]" />
+        </motion.div>
+      ))}
+
       <NavBar
         center={
           <AnimatePresence>
@@ -202,11 +262,15 @@ export function Bag() {
   );
 }
 
-/** 8 заттың бірі: басу немесе рюкзакқа сүйреу → сөмкеге салу; қайта басу → алып шығу */
+/**
+ * 8 заттың бірі. Басу немесе рюкзакқа сүйреу → қажетті зат сөмкеге ұшады,
+ * қажет емес зат қызыл болып шайқалады. Сөмкедегі затты қайта басу → алып шығу.
+ */
 function ItemCard({
   word,
   index,
   inBag,
+  wrong,
   onPut,
   onRemove,
   onOver,
@@ -214,68 +278,95 @@ function ItemCard({
   word: Word;
   index: number;
   inBag: boolean;
-  onPut: () => void;
+  wrong: boolean;
+  onPut: (from: StageRect) => 'ok' | 'wrong' | 'skip';
   onRemove: () => void;
   onOver: (id: string | null) => void;
 }) {
+  const shake = useAnimationControls();
+  const put = (from: StageRect) => {
+    if (onPut(from) === 'wrong') shake.start({ x: [0, -16, 16, -12, 12, -6, 0], transition: { duration: 0.45 } });
+  };
   const { handlers, style, dragging } = useStageDrag({
-    onTap: inBag ? onRemove : onPut,
-    onDrop: (t) => t === 'bag' && onPut(),
+    onTap: (from) => (inBag ? onRemove() : put(from)),
+    onDrop: (t, from) => {
+      if (t === 'bag') put(from);
+    },
     onOver,
     noDrag: inBag,
   });
   return (
-    <motion.button
-      type="button"
-      data-testid={`item-${word}`}
-      aria-pressed={inBag}
+    <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...spring, delay: 0.2 + index * 0.05 }}
-      whileHover={inBag || dragging ? undefined : { y: -6 }}
-      {...handlers}
-      style={{ touchAction: 'none', ...style }}
-      className={`card relative flex h-[215px] flex-col items-center justify-between px-3 pb-3 pt-4 ${
-        inBag ? 'border-sea/40 bg-sky-100/70' : 'cursor-grab'
-      }`}
     >
-      <Asset id={ITEM_ASSET[word]} className={`pointer-events-none h-[128px] w-[180px] ${inBag ? 'opacity-35' : ''}`} />
-      <span className="text-[34px] font-extrabold leading-none text-ink">{word}</span>
-      {inBag && (
-        <span className="absolute right-3 top-3 flex h-[44px] w-[44px] items-center justify-center rounded-full bg-sea text-white shadow-card">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      )}
-    </motion.button>
+      <motion.button
+        type="button"
+        data-testid={`item-${word}`}
+        data-state={inBag ? 'in-bag' : wrong ? 'wrong' : 'idle'}
+        aria-pressed={inBag}
+        animate={shake}
+        whileHover={inBag || dragging ? undefined : { y: -6 }}
+        {...handlers}
+        style={{ touchAction: 'none', ...style }}
+        className={`card relative flex h-[215px] w-full flex-col items-center justify-between px-3 pb-3 pt-4 ${
+          inBag ? 'border-ok/60 bg-[#E6F8EC]' : wrong ? 'border-no bg-[#FFE4E7] ring-4 ring-no/40' : 'cursor-grab'
+        }`}
+      >
+        <Asset id={ITEM_ASSET[word]} className={`pointer-events-none h-[128px] w-[180px] ${inBag ? 'opacity-35' : ''}`} />
+        <span className={`text-[34px] font-extrabold leading-none ${wrong ? 'text-no-shade' : 'text-ink'}`}>{word}</span>
+        {(inBag || wrong) && (
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={spring}
+            className={`absolute right-3 top-3 flex h-[48px] w-[48px] items-center justify-center rounded-full text-white shadow-card ${
+              inBag ? 'bg-ok' : 'bg-no'
+            }`}
+          >
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+              {inBag ? (
+                <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round" />
+              ) : (
+                <path d="M7 7l10 10M17 7L7 17" stroke="currentColor" strokeWidth={3.4} strokeLinecap="round" />
+              )}
+            </svg>
+          </motion.span>
+        )}
+      </motion.button>
+    </motion.div>
   );
 }
 
 /** Сөмкедегі зат: басу немесе сөйлем орнына сүйреу → сөйлем құру; × → сөмкеден алу */
 function BagChip({
   word,
+  landing,
   used,
   onUse,
   onRemove,
   onOver,
 }: {
   word: Word;
+  landing: boolean;
   used: boolean;
   onUse: () => void;
   onRemove: () => void;
   onOver: (id: string | null) => void;
 }) {
   const { handlers, style } = useStageDrag({
-    onTap: onUse,
-    onDrop: (t) => t === 'slot' && onUse(),
+    onTap: () => onUse(),
+    onDrop: (t) => {
+      if (t === 'slot') onUse();
+    },
     onOver,
   });
   return (
     <motion.div
       layout
       initial={{ opacity: 0, scale: 0.4, y: -60 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
+      animate={landing ? { opacity: 0, scale: 0.4, y: -60 } : { opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.4 }}
       transition={spring}
       className="relative"
