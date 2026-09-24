@@ -19,14 +19,13 @@ export function NavBar({ center }: { center?: ReactNode }) {
         <ChevronLeft size={44} />
       </button>
       <div className="flex gap-6">{center}</div>
-      <button
-        type="button"
-        className="btn3d btn-sun"
-        onClick={() => go(state.screen + 1)}
-        disabled={state.screen >= SCREEN_COUNT}
-      >
-        Келесі <ChevronRight />
-      </button>
+      {state.screen < SCREEN_COUNT ? (
+        <button type="button" className="btn3d btn-sun" onClick={() => go(state.screen + 1)}>
+          Келесі <ChevronRight />
+        </button>
+      ) : (
+        <span className="w-[88px]" />
+      )}
     </div>
   );
 }

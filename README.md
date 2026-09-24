@@ -12,8 +12,26 @@
 npm install
 npm run dev      # әзірлеу режимі
 npm run build    # dist/ — кез келген статикалық хостингке немесе офлайн көрсетуге
+npm run build:single  # dist-single/index.html — бір файл, интернетсіз екі рет басу арқылы ашылады
 npm test         # балл, Word мазмұны және asset тесттері
 ```
+
+Браузерде тексеру (`npm run build && npx vite preview --port 4173` іске қосылып тұрғанда):
+
+```bash
+node scripts/qa_walkthrough.mjs <out>   # FINAL ACCEPTANCE: 1→16, балл 10/10, reset, қайта бастау
+node scripts/qa_assets.mjs              # әр экрандағы asset = manifest, тек мектеп формасы
+node scripts/qa_screens.mjs <out> 1 … 16  # 1920/1366/1024: overflow, бұзық сурет, console
+node scripts/qa_flow_s2.mjs <out>       # (s1, s3, s456, s7_16 — экрандар бойынша)
+```
+
+## Автор шешімдері (Word-та жоқ)
+
+`src/content/decisions.ts`:
+- 2-экран: доп пен балмұздақ — саяхатқа қажет емес (қызыл).
+- 9-экран: артық сөздің жауап кілті әзірге жоқ (`ODD_WORD_ANSWERS = null`) — растаса, сол файлға жазу жеткілікті.
+
+Балдың барлығы тек мұғалім режимі арқылы қойылады (Word-та автоматты ереже жоқ).
 
 ## Құрылымы
 

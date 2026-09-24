@@ -20,6 +20,14 @@ await page.screenshot({ path: shot });
 await page.getByTestId('start').click();
 await page.waitForTimeout(600);
 console.log('start → screen 2:', (await page.locator('text=Саяхатшының сөмкесі').count()) > 0);
+// all 16 screens: «Келесі» арқылы соңына дейін
+let broken = 0;
+for (let n = 2; n <= 16; n++) {
+  broken += await page.evaluate(() => [...document.images].filter((i) => !i.complete || i.naturalWidth === 0).length);
+  if (n < 16) { await page.getByText('Келесі').last().click(); await page.waitForTimeout(900); }
+}
+const last = await page.evaluate(() => JSON.parse(localStorage.getItem('sayakhatshy-balakaylar:v1')).screen);
+console.log('offline walkthrough reached screen:', last, '| broken images:', broken);
 console.log('external requests:', requests.length ? requests : 'none');
 console.log('errors:', errors.length ? errors : 'none');
 await browser.close();
