@@ -21,8 +21,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
     await page.mouse.up(); await page.waitForTimeout(500);
   };
 
-  await page.goto('http://localhost:4173/');
-  await page.evaluate(() => localStorage.setItem('sayakhatshy-balakaylar:v1', JSON.stringify({ screen: 2 })));
+  await page.goto('http://localhost:4173/#s2');
   await page.reload(); await page.waitForTimeout(1200);
 
   check('8 зат Word ретімен', JSON.stringify(await page.locator('[data-testid^="item-"]').evaluateAll((e) => e.map((x) => x.dataset.testid.slice(5)))) === JSON.stringify(['карта','кітап','билет','доп','қалам','төлқұжат','балмұздақ','су']));

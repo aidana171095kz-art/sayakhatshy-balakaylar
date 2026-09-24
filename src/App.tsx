@@ -46,6 +46,7 @@ function Game() {
       <AnimatePresence mode="wait">
         <motion.div
           key={state.screen}
+          data-screen={state.screen}
           className="absolute inset-0"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

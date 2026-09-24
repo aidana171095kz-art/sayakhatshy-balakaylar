@@ -40,7 +40,7 @@ node scripts/qa_flow_s2.mjs <out>       # (s1, s3, s456, s7_16 — экранд�
 | `content/word-source.txt` | Word құжатының мәтіні — мазмұнның бірден-бір көзі |
 | `src/content/lesson.ts` | Экрандағы оқу мәтіні. Әр жолы Word-та бар-жоғы тестпен тексеріледі |
 | `src/game/tasks.ts` | Бағалау парағы (барлығы 10 балл) |
-| `src/game/state.ts` | Орталық state (reducer) және оны localStorage-та сақтау |
+| `src/game/state.ts` | Орталық state (reducer). Күй сақталмайды: бетті ашқанда/жаңартқанда ойын таза басталады |
 | `src/assets/manifest.ts` | Asset Manifest. Сурет тек `<Asset id>` арқылы шығады |
 | `src/screens/` | 16 экран. Қайсысы дайын екені `registry.ts`-те көрсетілген |
 | `src/teacher/` | Мұғалім режимі |

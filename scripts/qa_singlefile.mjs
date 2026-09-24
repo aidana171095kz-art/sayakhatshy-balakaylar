@@ -26,7 +26,7 @@ for (let n = 2; n <= 16; n++) {
   broken += await page.evaluate(() => [...document.images].filter((i) => !i.complete || i.naturalWidth === 0).length);
   if (n < 16) { await page.getByText('Келесі').last().click(); await page.waitForTimeout(900); }
 }
-const last = await page.evaluate(() => JSON.parse(localStorage.getItem('sayakhatshy-balakaylar:v1')).screen);
+const last = Number(await page.locator('[data-screen]').last().getAttribute('data-screen'));
 console.log('offline walkthrough reached screen:', last, '| broken images:', broken);
 console.log('external requests:', requests.length ? requests : 'none');
 console.log('errors:', errors.length ? errors : 'none');

@@ -11,8 +11,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 let ok = true;
 for (let n = 1; n <= 16; n++) {
-  await page.goto('http://localhost:4173/');
-  await page.evaluate((n) => localStorage.setItem('sayakhatshy-balakaylar:v1', JSON.stringify({ screen: n })), n);
+  await page.goto(`http://localhost:4173/#s${n}`);
   await page.reload(); await page.waitForTimeout(1500);
   const info = await page.evaluate(() => ({
     used: [...new Set([...document.querySelectorAll('[data-stage] [data-asset]')].map((e) => e.dataset.asset))],

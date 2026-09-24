@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
-import { initialState, loadState, reducer, saveState, totalScore, type Action, type GameState } from './state';
+import { clearLegacyStorage, initialState, reducer, screenFromHash, totalScore, type Action, type GameState } from './state';
 
 interface GameContextValue {
   state: GameState;
@@ -18,8 +18,9 @@ const storage = (): Storage | undefined => {
 };
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState, () => loadState(storage()));
-  useEffect(() => saveState(storage(), state), [state]);
+  // Әр ашылғанда таза күй: таңдаулар, жауаптар, балл — бәрі бастапқы қалпында
+  const [state, dispatch] = useReducer(reducer, initialState, (s) => ({ ...s, screen: screenFromHash(window.location.hash) }));
+  useEffect(() => clearLegacyStorage(storage()), []);
   const value = useMemo(() => ({ state, dispatch, total: totalScore(state) }), [state]);
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }

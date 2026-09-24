@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialState, loadState, reducer, taskScore, totalScore, type Action, type GameState } from './state';
+import { clearLegacyStorage, initialState, LEGACY_STORAGE_KEY, reducer, screenFromHash, taskScore, totalScore, type Action, type GameState } from './state';
 import { MAX_TOTAL, TASKS, TASK_ORDER, taskMax } from './tasks';
 
 const run = (actions: Action[], from: GameState = initialState) => actions.reduce(reducer, from);
@@ -74,15 +74,20 @@ describe('бағалау құрылымы', () => {
     expect(run([{ type: 'go', screen: 99 }]).screen).toBe(16);
   });
 
-  it('localStorage-тан жүктеу бұзылған балдарды шектейді', () => {
-    const storage = { getItem: () => JSON.stringify({ screen: 4, scores: { 'bag.named': 7, 'ticket.answered': 9, 'x.y': 3 } }) };
-    const s = loadState(storage);
-    expect(s.screen).toBe(4);
-    expect(totalScore(s)).toBe(2);
+  it('күй сақталмайды: ескі жад тазаланады, қатесі ойынды тоқтатпайды', () => {
+    const removed: string[] = [];
+    clearLegacyStorage({ removeItem: (k: string) => removed.push(k) });
+    expect(removed).toEqual([LEGACY_STORAGE_KEY]);
+    expect(() => clearLegacyStorage({ removeItem: () => { throw new Error('blocked'); } })).not.toThrow();
+    expect(() => clearLegacyStorage(undefined)).not.toThrow();
   });
 
-  it('localStorage қатесі ойынды тоқтатпайды', () => {
-    expect(loadState({ getItem: () => '{not json' })).toEqual(initialState);
-    expect(loadState(undefined)).toEqual(initialState);
+  it('тікелей сілтеме #sN тек экранды таңдайды, қате мән → 1-экран', () => {
+    expect(screenFromHash('#s5')).toBe(5);
+    expect(screenFromHash('#s16')).toBe(16);
+    expect(screenFromHash('')).toBe(1);
+    expect(screenFromHash('#s0')).toBe(1);
+    expect(screenFromHash('#s99')).toBe(1);
+    expect(screenFromHash('#x')).toBe(1);
   });
 });

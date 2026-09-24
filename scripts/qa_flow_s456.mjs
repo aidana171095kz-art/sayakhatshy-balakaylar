@@ -13,8 +13,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   const text = async (id) => (await page.getByTestId(id).innerText()).replace(/\s+/g, ' ').trim();
   const st = async (id) => page.getByTestId(id).getAttribute('data-state');
   const open = async (n) => {
-    await page.goto('http://localhost:4173/');
-    await page.evaluate((n) => localStorage.setItem('sayakhatshy-balakaylar:v1', JSON.stringify({ screen: n })), n);
+    await page.goto(`http://localhost:4173/#s${n}`);
     await page.reload(); await page.waitForTimeout(1300);
   };
   const drag = async (from, to) => {

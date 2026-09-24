@@ -13,9 +13,8 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   const tc = async (id) => (await page.getByTestId(id).textContent()).replace(/\s+/g, ' ').trim();
   const st = async (id) => page.getByTestId(id).getAttribute('data-state');
   const stage = async () => (await page.locator('[data-stage]').textContent()).replace(/\s+/g, ' ');
-  const open = async (n, extra = {}) => {
-    await page.goto('http://localhost:4173/');
-    await page.evaluate(([n, extra]) => localStorage.setItem('sayakhatshy-balakaylar:v1', JSON.stringify({ screen: n, ...extra })), [n, extra]);
+  const open = async (n) => {
+    await page.goto(`http://localhost:4173/#s${n}`);
     await page.reload(); await page.waitForTimeout(1300);
   };
   const teacher = async () => { await page.keyboard.press('Shift+T'); await page.waitForTimeout(400); };
@@ -118,9 +117,12 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   const s15 = await stage();
   check('15: Word сөйлемдері', s15.includes('Маған') && s15.includes('ұнады.') && s15.includes('білдім.') && s15.includes('көргім келеді.') && s15.includes('Сөйлемдерді аяқта:'));
 
-  // 16 — балл орталық state-тен
-  await open(16, { scores: { 'bag.named': 1, 'bag.sentence': 1, 'recognize.named': 1, 'seeing.objects': 1, 'trueFalse.distinguish': 2, 'ticket.answered': 1 } });
-  check(`16: жинаған балл орталық state-тен → «${await tc('final-score')}»`, (await tc('final-score')) === '7 / 10' && (await score()) === '7 / 10');
+  // 16 — балл орталық state-тен (мұғалім 8 және 14-экранда қойған балл финалға түседі)
+  await open(8);
+  await teacher(); await page.getByTestId('score-seeing-objects-1').click(); await page.getByTestId('score-seeing-sentence-1').click();
+  await page.getByTitle('Сиқырлы билет').click(); await page.waitForTimeout(600); await page.getByTestId('score-ticket-answered-1').click();
+  await page.getByTitle('Саяхатшы билеті').click(); await page.waitForTimeout(900); await closeTeacher();
+  check(`16: жинаған балл орталық state-тен → «${await tc('final-score')}»`, (await tc('final-score')) === '3 / 10' && (await score()) === '3 / 10');
   await page.getByTestId('student-name').fill('Айгерім');
   await page.getByTestId('favorite-Алматы').click(); await page.waitForTimeout(300);
   const s16 = await tc('traveler-ticket');

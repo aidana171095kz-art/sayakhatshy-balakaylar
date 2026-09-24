@@ -14,8 +14,7 @@ for (const [name, w, h] of sizes) {
   page.on('console', (m) => m.type() === 'error' && errors.push(`${name}: ${m.text()}`));
   page.on('pageerror', (e) => errors.push(`${name}: ${e.message}`));
   for (const s of screens.length ? screens : ['1']) {
-    await page.goto('http://localhost:4173/');
-    await page.evaluate((n) => localStorage.setItem('sayakhatshy-balakaylar:v1', JSON.stringify({ screen: Number(n) })), s);
+    await page.goto(`http://localhost:4173/#s${s}`);
     await page.reload();
     await page.waitForTimeout(1800);
     const overflow = await page.evaluate(() => ({

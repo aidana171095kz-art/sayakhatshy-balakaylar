@@ -29,12 +29,17 @@ check('панель жиыны 2 / 10', (await page.getByTestId('teacher-total')
 await page.screenshot({ path: `${out}/s2-teacher.png` });
 
 await page.reload();
-await page.waitForTimeout(800);
-check(`бетті жаңартқанда сақталады → "${await score()}"`, (await score()) === '2 / 10');
+await page.waitForTimeout(1200);
+check('бетті жаңартқанда бәрі тазаланады → Welcome экраны', await page.getByTestId('start').isVisible());
+await page.getByTestId('start').click(); await page.waitForTimeout(700);
+check(`жаңартудан кейін балл 0 → "${await score()}"`, (await score()) === '0 / 10');
+check('ескі жад өшірілген', (await page.evaluate(() => localStorage.getItem('sayakhatshy-balakaylar:v1'))) === null);
+await page.getByTestId('score').click(); // фокусты беттен алу үшін
 
 await page.keyboard.press('Shift+T');
 await page.waitForTimeout(500);
 check('Shift+T → мұғалім панелі', await page.getByTestId('teacher-panel').isVisible());
+await page.getByTestId('score-bag-named-1').click(); await page.waitForTimeout(200);
 await page.getByText('Тапсырманы reset').click();
 await page.waitForTimeout(300);
 check(`тапсырманы reset → "${await score()}"`, (await score()) === '0 / 10');

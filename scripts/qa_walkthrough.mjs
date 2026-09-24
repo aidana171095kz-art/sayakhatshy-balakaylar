@@ -14,17 +14,19 @@ const next = async () => { await page.getByText('Келесі', { exact: false }
 const teacherOpen = async () => { if (!(await page.getByTestId('teacher-panel').count())) { await page.keyboard.press('Shift+T'); await page.waitForTimeout(450); } };
 const teacherClose = async () => { if (await page.getByTestId('teacher-panel').count()) { await page.getByText('Жабу', { exact: true }).first().click(); await page.waitForTimeout(450); } };
 const give = async (ids) => { await teacherOpen(); for (const id of ids) await page.getByTestId(id).click(); await page.waitForTimeout(250); await teacherClose(); };
-const screenNo = async () => page.evaluate(() => JSON.parse(localStorage.getItem('sayakhatshy-balakaylar:v1')).screen);
+const screenNo = async () => Number(await page.locator('[data-screen]').last().getAttribute('data-screen'));
 
 // 1–2. Start project, Screen 1
+// Бұрынғы нұсқаның қалдығы: 2-экран, заттар таңдалған, балл бар — жаңа нұсқа оны көрсетпеуі керек
 await page.goto('http://localhost:4173/');
-await page.evaluate(() => localStorage.clear());
+await page.evaluate(() => localStorage.setItem('sayakhatshy-balakaylar:v1', JSON.stringify({ screen: 2, scores: { 'bag.named': 1 }, screenState: { 2: { bag: ['карта', 'су'], sentences: ['карта'], wrong: ['доп'] } } })));
 await page.reload(); await page.waitForTimeout(1500);
+check('ескі сақталған күй көрсетілмейді, жадтан өшірілді', (await page.getByTestId('start').isVisible()) && (await page.evaluate(() => localStorage.getItem('sayakhatshy-balakaylar:v1'))) === null);
 check('1–2. Жоба ашылды, 1-экран (Welcome)', await page.getByTestId('start').isVisible());
 await page.getByTestId('start').click(); await page.waitForTimeout(900);
 
 // 3–4. Screen 2 + score
-check('→ 2-экран', (await screenNo()) === 2);
+check('→ 2-экран: бірде-бір зат таңдалмаған, балл 0', (await screenNo()) === 2 && (await page.locator('[data-state="in-bag"], [data-state="wrong"]').count()) === 0 && (await score()) === '0 / 10');
 for (const w of ['карта', 'су', 'доп']) { await page.getByTestId(`item-${w}`).click(); await page.waitForTimeout(700); }
 await page.getByTestId('bag-карта').click();
 await give(['score-bag-named-1', 'score-bag-sentence-1', 'score-bag-named-1']);
@@ -130,12 +132,15 @@ await page.getByTestId('item-кітап').click(); await page.waitForTimeout(800
 check('18. интерактив қайта жұмыс істейді', (await page.getByTestId('item-кітап').getAttribute('data-state')) === 'in-bag');
 await page.getByRole('button', { name: 'Артқа' }).click(); await page.waitForTimeout(800);
 check('18. «Артқа» навигациясы', await page.getByTestId('start').isVisible());
-for (let n = 16; n >= 1; n--) {
-  await page.evaluate((n) => localStorage.setItem('sayakhatshy-balakaylar:v1', JSON.stringify({ screen: n })), n);
-}
-await page.reload(); await page.waitForTimeout(800);
-check('18. бетті жаңарту — сақталған экран ашылады', (await screenNo()) === 1);
-
+// 18. Бетті жаңарту — таңдаулар мен балл сақталмайды, таза бастау
+await page.getByTestId('start').click(); await page.waitForTimeout(900);
+await page.getByTestId('item-билет').click(); await page.waitForTimeout(800);
+await give(['score-bag-named-1']);
+check('жаңартудан бұрын: билет таңдалған, балл 1', (await page.getByTestId('item-билет').getAttribute('data-state')) === 'in-bag' && (await score()) === '1 / 10');
+await page.reload(); await page.waitForTimeout(1300);
+check('18. жаңарту → Welcome, ештеңе сақталмаған', await page.getByTestId('start').isVisible());
+await page.getByTestId('start').click(); await page.waitForTimeout(900);
+check(`18. жаңартудан кейін: таңдау жоқ, балл ${await score()}`, (await page.locator('[data-state="in-bag"], [data-state="wrong"]').count()) === 0 && (await score()) === '0 / 10');
 check(`console/page errors: ${errors.length ? errors : 'none'}`, errors.length === 0);
 console.log(results.every(Boolean) ? 'ALL PASS' : 'SOME FAILED', `${results.filter(Boolean).length}/${results.length}`);
 await browser.close();

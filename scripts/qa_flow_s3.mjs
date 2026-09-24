@@ -12,8 +12,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   const states = async () => Promise.all([0, 1, 2].map((i) => page.getByTestId(`stop-${i}`).getAttribute('data-state')));
   const score = async () => (await page.getByTestId('score').innerText()).replace(/\s+/g, ' ');
 
-  await page.goto('http://localhost:4173/');
-  await page.evaluate(() => localStorage.setItem('sayakhatshy-balakaylar:v1', JSON.stringify({ screen: 3 })));
+  await page.goto('http://localhost:4173/#s3');
   await page.reload(); await page.waitForTimeout(1200);
 
   check('Word сөйлемі', (await page.getByTestId('route-sentence').innerText()) === 'Біздің бағытымыз: Астана – Бурабай – Алматы.');

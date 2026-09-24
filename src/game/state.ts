@@ -1,7 +1,8 @@
 import { MAX_TOTAL, TASKS, TASK_ORDER, scoreKey, type TaskId } from './tasks';
 
 export const SCREEN_COUNT = 16;
-export const STORAGE_KEY = 'sayakhatshy-balakaylar:v1';
+/** Ескі нұсқалар күйді осы кілтпен сақтаған — енді ештеңе сақталмайды, тек тазаланады */
+export const LEGACY_STORAGE_KEY = 'sayakhatshy-balakaylar:v1';
 
 export interface GameState {
   screen: number;
@@ -74,32 +75,21 @@ export function totalScore(state: GameState): number {
   );
 }
 
-export function loadState(storage: Pick<Storage, 'getItem'> | undefined): GameState {
+/**
+ * Ойын күйі ешқайда сақталмайды: бетті ашқанда/жаңартқанда әрдайым таза бастайды.
+ * Ескі нұсқа браузерде қалдырған деректі өшіреді.
+ */
+export function clearLegacyStorage(storage: Pick<Storage, 'removeItem'> | undefined) {
   try {
-    const raw = storage?.getItem(STORAGE_KEY);
-    if (!raw) return initialState;
-    const parsed = JSON.parse(raw) as Partial<GameState>;
-    let state: GameState = {
-      ...initialState,
-      screenState: parsed.screenState ?? {},
-      revealed: parsed.revealed ?? {},
-    };
-    state = reducer(state, { type: 'go', screen: Number(parsed.screen) || 1 });
-    // Сақталған балдарды reducer арқылы қайта өткіземіз — бұзылған мәндер max-тан аспайды.
-    for (const [key, value] of Object.entries(parsed.scores ?? {})) {
-      const [task, criterion] = key.split('.');
-      if (task in TASKS) state = reducer(state, { type: 'setScore', task: task as TaskId, criterion, value: Number(value) });
-    }
-    return state;
+    storage?.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    return initialState;
+    /* браузер жадына қол жетпесе — ештеңе істемейміз */
   }
 }
 
-export function saveState(storage: Pick<Storage, 'setItem'> | undefined, state: GameState) {
-  try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    /* сақтау мүмкін болмаса — ойын жадта жалғаса береді */
-  }
+/** Мұғалімге/тексеруге арналған тікелей сілтеме: `#s5` → 5-экран (күй бәрібір таза). */
+export function screenFromHash(hash: string): number {
+  const m = /^#s(\d{1,2})$/.exec(hash);
+  const n = m ? Number(m[1]) : 1;
+  return n >= 1 && n <= SCREEN_COUNT ? n : 1;
 }
