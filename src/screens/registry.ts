@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import { lesson } from '../content/lesson';
 import { Bag } from './Bag';
+import { MapScreen } from './MapScreen';
 import { Welcome } from './Welcome';
 
 export type Section = 'start' | 'astana' | 'burabay' | 'almaty' | 'final';
@@ -20,7 +21,7 @@ export interface ScreenDef {
 export const SCREENS: ScreenDef[] = [
   { n: 1, title: 'Welcome', section: 'start', component: Welcome, teacherNotes: [lesson.intro.stage, lesson.intro.teacher, lesson.intro.students] },
   { n: 2, title: lesson.bag.title, section: 'start', component: Bag, teacherNotes: [lesson.bag.game, lesson.bag.descriptor], example: lesson.bag.example },
-  { n: 3, title: 'Қазақстан картасы', section: 'start', teacherNotes: [lesson.intro.teacherRoute] },
+  { n: 3, title: 'Қазақстан картасы', section: 'start', component: MapScreen, teacherNotes: [lesson.intro.teacherRoute] },
   { n: 4, title: 'Астана', section: 'astana', teacherNotes: [lesson.astana.stage, lesson.astana.teacher] },
   { n: 5, title: lesson.recognize.title, section: 'astana', teacherNotes: [lesson.recognize.descriptor], example: lesson.recognize.example },
   { n: 6, title: lesson.scrambled.title, section: 'astana', example: lesson.scrambled.answers.join(' ') },

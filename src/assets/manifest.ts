@@ -29,12 +29,16 @@ const A = (e: AssetEntry) => e;
 export const ASSETS = {
   // ── Кейіпкерлер (мектеп формасы) ─────────────────────────────
   'boy.pointing': A({ id: 'boy.pointing', kind: 'character', label: 'Бала', source: 'Drive 22A5220A (=W08/W33)', status: 'final', characterStyle: 'uniform' }),
+  'boy.map': A({ id: 'boy.map', kind: 'character', label: 'Бала', source: 'Drive 5589E269', status: 'final', characterStyle: 'uniform' }),
   'girl.openBag': A({ id: 'girl.openBag', kind: 'character', label: 'Қыз', source: 'Drive ECC87B5E (=W16), фоны қиылды', status: 'final', characterStyle: 'uniform' }),
   'girl.walking': A({ id: 'girl.walking', kind: 'character', label: 'Қыз', source: 'Drive 4F18C84E (=W14/W22/W37)', status: 'final', characterStyle: 'uniform' }),
 
   // ── Фондар (ішінде кейіпкер жоқ) ─────────────────────────────
   'bg.astana': A({ id: 'bg.astana', kind: 'background', label: 'Астана', source: 'W04', status: 'final', note: 'WhatsApp көшірмесі 1280×720 — түпнұсқа PNG/JPG сұралды' }),
   'bg.almaty': A({ id: 'bg.almaty', kind: 'background', label: 'Алматы', source: '—', status: 'missing', note: 'Кейіпкерсіз Алматы фоны берілмеген' }),
+
+  // ── Карта ────────────────────────────────────────────────────
+  'map.kazakhstan': A({ id: 'map.kazakhstan', kind: 'background', label: 'Қазақстан картасы', source: 'Drive 2006CD51 (=W29)', status: 'final', note: 'Белгілер (pin) суретте: көк — Астана, жасыл — Бурабай, қызыл — Алматы' }),
 
   // ── Көрікті жерлер ──────────────────────────────────────────
   'landmark.baiterek': A({ id: 'landmark.baiterek', kind: 'landmark', label: 'Бәйтерек', source: 'W50 (фоны қиылды)', status: 'final' }),
@@ -68,5 +72,6 @@ export function assetUrl(id: AssetId): string | undefined {
 /** Әр экранда қолданылатын asset-тер (QA және кейіпкер стилін тексеру үшін). */
 export const SCREEN_ASSETS: Record<number, AssetId[]> = {
   1: ['bg.astana', 'boy.pointing', 'girl.walking'],
+  3: ['map.kazakhstan', 'boy.map', 'ui.star'],
   2: ['girl.openBag', 'prop.backpack', 'item.map', 'item.book', 'item.ticket', 'item.ball', 'item.pencil', 'item.passport', 'item.icecream', 'item.water', 'ui.star'],
 };

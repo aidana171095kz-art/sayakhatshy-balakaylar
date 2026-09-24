@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 SRC = pathlib.Path('asset-src'); OUT = pathlib.Path('src/assets')
-MAX_EDGE = {'bg': 1920}  # backgrounds full-HD; everything else below
+MAX_EDGE = {'bg': 1920, 'map': 1536}  # backgrounds full-HD; everything else below
 DEFAULT_EDGE = 1100
 ITEM_EDGE = 520  # small objects shown on cards
 
