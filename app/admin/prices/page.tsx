@@ -29,7 +29,7 @@ export default async function PricesPage() {
           <div className="divide-y">
             {products.map((p) => (
               <PriceRow
-                key={`${p.id}-${p.updatedAt.getTime()}`}
+                key={p.id}
                 productId={p.id}
                 label={`${p.category.emoji ?? ''} ${productLabel(p)}`}
                 meta={

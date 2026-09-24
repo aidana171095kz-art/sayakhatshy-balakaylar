@@ -61,7 +61,12 @@ export function AddSupplyItemForm({ supplyId, products }: { supplyId: string; pr
   const [state, action, pending] = useActionState<ActionState, FormData>(addSupplyItemAction, {});
   const e = state.fieldErrors ?? {};
   if (products.length === 0) {
-    return <p className="text-sm text-muted-foreground">Все активные товары уже в поставке.</p>;
+    return (
+      <div className="space-y-2">
+        {state.ok && <Alert tone="success">✅ {state.ok}</Alert>}
+        <p className="text-sm text-muted-foreground">Все активные товары уже в поставке.</p>
+      </div>
+    );
   }
   return (
     <form action={action} className="grid gap-3 sm:grid-cols-[1fr_8rem_9rem_auto] sm:items-end">
@@ -224,16 +229,18 @@ export function PreOrderForm({ supplyId, products }: { supplyId: string; product
 }
 
 export function ConvertPreOrderForm({
+  supplyId,
   preOrderId,
   items,
 }: {
+  supplyId: string;
   preOrderId: string;
   items: { productId: string; label: string; quantity: number; available: number }[];
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(convertPreOrderAction, {});
-  if (state.ok) return <Alert tone="success">✅ {state.ok}</Alert>;
   return (
     <form action={action} className="space-y-2">
+      <input type="hidden" name="supplyId" value={supplyId} />
       <input type="hidden" name="preOrderId" value={preOrderId} />
       {items.map((i) => (
         <label key={i.productId} className="flex items-center gap-2 text-sm">

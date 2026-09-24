@@ -19,7 +19,7 @@ import { preOrderStatusAction, removeSupplyItemAction, supplyStatusAction } from
 
 export const dynamic = 'force-dynamic';
 
-type Search = Promise<{ error?: string; created?: string; arrived?: string }>;
+type Search = Promise<{ error?: string; created?: string; arrived?: string; converted?: string }>;
 
 function Step({ n, label, done, active }: { n: number; label: string; done: boolean; active: boolean }) {
   return (
@@ -91,6 +91,11 @@ export default async function SupplyPage({ params, searchParams }: { params: Pro
 
       {sp.error && <div className="mb-4"><Alert tone="error">{sp.error}</Alert></div>}
       {sp.created && <div className="mb-4"><Alert tone="success">✅ Поставка создана. Теперь добавьте товары.</Alert></div>}
+      {sp.converted && (
+        <div className="mb-4">
+          <Alert tone="success">✅ Создан заказ {sp.converted.slice(0, 20)}, товар забронирован на складе.</Alert>
+        </div>
+      )}
       {sp.arrived && <div className="mb-4"><Alert tone="success">✅ Товар добавлен на склад. Теперь можно превратить предзаказы в заказы.</Alert></div>}
 
       <ol className="mb-6 grid gap-2 rounded-lg border bg-card p-4 sm:grid-cols-4">
@@ -235,6 +240,7 @@ export default async function SupplyPage({ params, searchParams }: { params: Pro
                 <div className="flex flex-col gap-2 md:w-72">
                   {arrived && (
                     <ConvertPreOrderForm
+                      supplyId={id}
                       preOrderId={po.id}
                       items={po.items.map((it) => {
                         const si = supply.items.find((x) => x.productId === it.productId);

@@ -182,11 +182,11 @@ export async function convertPreOrderAction(_prev: ActionState, fd: FormData): P
   for (const [k, v] of fd.entries()) {
     if (k.startsWith('qty:') && typeof v === 'string') quantities.push({ productId: k.slice(4), quantity: v || '0' });
   }
+  let number: string;
   try {
-    const order = await convertPreOrderToOrder(String(fd.get('preOrderId') ?? ''), quantities, admin.id);
-    revalidatePath('/admin', 'layout');
-    return { ok: `Создан заказ ${order.number}, товар забронирован` };
+    number = (await convertPreOrderToOrder(String(fd.get('preOrderId') ?? ''), quantities, admin.id)).number;
   } catch (e) {
     return toActionState(e);
   }
+  done(back(String(fd.get('supplyId') ?? ''), `?converted=${encodeURIComponent(number)}`));
 }
