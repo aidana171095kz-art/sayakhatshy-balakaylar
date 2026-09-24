@@ -12,11 +12,9 @@
 
 Vercel сайтты әдетте `main` тармағынан жариялайды. Код қазір `claude/busy-bardeen-seggu9` тармағында тұр.
 
-1. https://github.com/aidana171095kz-art/sayakhatshy-balakaylar ашыңыз.
-2. Жоғарыда сары жолақ шықса: **«Compare & pull request»** басыңыз. (Шықпаса: **Pull requests → New pull request → compare: `claude/busy-bardeen-seggu9`**.)
-3. **Create pull request** → **Merge pull request** → **Confirm merge**.
-
-> Мұны Claude-ға да тапсыруға болады: «PR аш» деп жазсаңыз, PR-ді мен ашамын, сізге тек **Merge** басу қалады.
+1. Pull request ашылған: https://github.com/aidana171095kz-art/sayakhatshy-balakaylar/pull/2
+2. Бетті төменге түсіріп, **Merge pull request** → **Confirm merge** басыңыз.
+3. «Pull request successfully merged» жазуы шықса — дайын.
 
 ### Қадам 2. Vercel-де жоба ашу
 
