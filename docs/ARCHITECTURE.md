@@ -1,7 +1,20 @@
 # TALSHYN FLOWERS — WhatsApp бот + CRM + Admin panel
 
-**0-кезең: архитектура.** Бұл құжатта әзірге код жоқ. Мұнда жүйенің қалай құрылатыны, қандай аккаунттар мен кілттер керек екені және кодты қандай ретпен жазатынымыз жазылған.
-Код жазу сіз осы құжатты мақұлдағаннан кейін басталады (соңындағы «Шешім керек сұрақтар» бөлімін қараңыз).
+Бұл құжатта жүйенің қалай құрылғаны, қандай аккаунттар мен кілттер керек екені және кезеңдер жоспары жазылған.
+Іске қосу нұсқаулығы: [docs/SETUP.md](SETUP.md).
+
+## ✅ Бекітілген шешімдер (0-кезеңнен кейін)
+
+| # | Сұрақ | Шешім |
+|---|---|---|
+| 1 | Хостинг | **Vercel + Neon Postgres** |
+| 2 | WhatsApp нөмірі | **Жаңа бөлек SIM**, тек ботқа арналған |
+| 3 | Менеджерге хабарлама | **Admin panel + Telegram**. WhatsApp арқылы менеджерге ақылы хабарлама 1-нұсқада жоқ |
+| 4 | Stock | **physical / reserved / available бөлек.** CONFIRMED = бронь, PAID/COMPLETED = физикалық шығару, CANCELLED = бронь босайды (толығырақ §3.1) |
+| 5 | Баға | Әр тауарда **pricePerUnit, pricePerPackage, packageQuantity** — админ әр тауарға өзі енгізеді, ортақ тұрақты сан жоқ (§3.2) |
+| 6 | Монобукет | **Жеке сұраныс** → менеджер қарайды → бағаны админ қояды → тек содан кейін клиентке көрсетіледі. Stock-қа автоматты әсер жоқ (§3.3) |
+| 7 | AI | **1-нұсқада жоқ.** Бот: батырмалар, list messages, кілт сөз/нөмір, база. AI — 2-фазада |
+| — | Басты қағида | Бірінші нұсқа мүмкіндігінше **қарапайым, тұрақты, тестілеуге ыңғайлы** |
 
 ---
 
@@ -18,7 +31,6 @@
                                                 │  server/whatsapp  → жіберу        │
                                                 │  server/bot       → сценарий      │
                                                 │  server/services  → бизнес логика │
-                                                │  server/ai        → (міндетті емес)│
                                                 │  /admin/*         → Admin panel   │
                                                 │  /api/cron/*      → еске салу, рассылка │
                                                 └──────────┬───────────────┬────────┘
@@ -29,7 +41,7 @@
                                                    │ (бар дерек)  │  │ (S3/Blob)    │
                                                    └──────────────┘  └──────────────┘
                                                            │
-                               Менеджерге хабарлама ◄──────┘ (Admin panel + Telegram / WhatsApp template)
+                               Менеджерге хабарлама ◄──────┘ (Admin panel + Telegram)
 ```
 
 ### Неге бір Next.js қосымша (Express бөлек емес)?
@@ -44,9 +56,9 @@
 
 | Принцип | Қалай орындалады |
 |---|---|
-| Бот ештеңе ойдан шығармайды | Клиентке кететін **барлық** мәтін — код ішіндегі дайын шаблондар + базадан алынған сандар. AI тек клиент мәтінінен құрылымды дерек (тауар, саны, күн) алады, мәтін жазбайды. |
+| Бот ештеңе ойдан шығармайды | Клиентке кететін **барлық** мәтін — код ішіндегі дайын шаблондар + базадан алынған сандар. 1-нұсқада AI жоқ; 2-фазада AI тек клиент мәтінінен құрылымды дерек (тауар, саны, күн) алады, мәтін жазбайды. |
 | Бір орталық база | Баға, қалдық, поставка датасы — тек PostgreSQL-де. Бот әр жолы базадан оқиды, кэштемейді → ескі баға шықпайды. |
-| Қалдық тек бизнес ережесімен өзгереді | Stock тек тапсырыс CONFIRMED/PAID болғанда (баптауда таңдалады) бір транзакцияда азаяды, әр өзгеріс `StockMovement` журналына жазылады. |
+| Қалдық тек бизнес ережесімен өзгереді | CONFIRMED → бронь, PAID/COMPLETED → физикалық шығару, CANCELLED → бронь босайды. Бәрі бір транзакцияда, әр өзгеріс `StockMovement` журналына жазылады, база деңгейінде CHECK шектеулері бар. |
 | Спам жоқ | Бот клиентке өзі ешқашан бірінші жазбайды. Жаппай хабарлама тек админ «Растау» басқаннан кейін, тек рұқсат берген (opt‑in) клиенттерге. |
 | Webhook сенімді | Meta қолтаңбасы (`X-Hub-Signature-256`) тексеріледі, бір хабарлама екі рет өңделмейді (`wamid` бойынша), Meta-ға 200 жауап бірден қайтарылады. |
 
@@ -54,477 +66,138 @@
 
 ## 2. Папка құрылымы
 
+`✅` — 1-кезеңде жасалды, қалғаны кейінгі кезеңдерде.
+
 ```
 sayakhatshy-balakaylar/
 ├── app/                                  # Next.js (беттер + API)
-│   ├── login/page.tsx                    # Админ кіру беті
+│   ├── layout.tsx, globals.css           ✅ жалпы стиль
+│   ├── login/                            ✅ Админ кіру беті
 │   ├── admin/
-│   │   ├── layout.tsx                    # Сайдбар мәзірі, auth тексеру
-│   │   ├── page.tsx                      # 📊 Dashboard / аналитика
-│   │   ├── products/                     # 📦 Товары (тізім, қосу, өзгерту, фото)
-│   │   ├── stock/                        # 📊 Остатки (+ қозғалыс журналы)
-│   │   ├── prices/                       # 💰 Цены (жаппай өзгерту, тарих)
-│   │   ├── supplies/                     # 🚚 Поставки (+ предзаказдар)
-│   │   ├── orders/                       # 📋 Заказы (статус өзгерту)
-│   │   ├── preorders/                    # 📋 Предзаказы
-│   │   ├── customers/                    # 👥 Клиенты (CRM карточка)
-│   │   ├── inbox/                        # 💬 Чаттар (менеджер клиентке жауап береді)
-│   │   ├── broadcasts/                   # 📢 Рассылки
-│   │   ├── settings/                     # ⚙️ Настройки + админдер
-│   │   └── simulator/                    # 🧪 Бот симуляторы (Meta-сыз тест)
+│   │   ├── layout.tsx                    ✅ Сайдбар мәзірі, auth тексеру
+│   │   ├── page.tsx                      ✅ 📊 Dashboard (6-кезеңде толық аналитика)
+│   │   ├── account/                      ✅ Пароль ауыстыру
+│   │   ├── products/  stock/  prices/  supplies/  settings/     # 2-кезең
+│   │   ├── simulator/                    # 3-кезең: бот симуляторы (Meta-сыз тест)
+│   │   ├── preorders/  monobouquets/     # 4-кезең
+│   │   ├── orders/  customers/  inbox/   # 5-кезең
+│   │   └── broadcasts/                   # 6-кезең
 │   └── api/
-│       ├── whatsapp/webhook/route.ts     # GET = verify, POST = кіріс хабарламалар
-│       ├── cron/daily/route.ts           # поставка еске салу, low stock
-│       ├── cron/broadcasts/route.ts      # рассылка кезегін жіберу
-│       ├── uploads/route.ts              # тауар фотосын жүктеу
-│       ├── auth/[...nextauth]/route.ts   # админ кіру
-│       └── health/route.ts               # сервер тірі ме
+│       ├── health/route.ts               ✅ сервер мен база тірі ме
+│       ├── whatsapp/webhook/route.ts     # 3-кезең: GET = verify, POST = кіріс хабарламалар
+│       ├── uploads/route.ts              # 2-кезең: тауар фотосы (Vercel Blob)
+│       └── cron/                         # 6-кезең: поставка еске салу, рассылка кезегі
+├── proxy.ts                              ✅ /admin қорғанысы (Next 16-да middleware → proxy)
 ├── server/                               # Бизнес логика (Next.js-тен тәуелсіз)
-│   ├── env.ts                            # .env тексеру (zod) — кілт жоқ болса іске қосылмайды
-│   ├── db.ts                             # Prisma client
-│   ├── logger.ts                         # лог (token/телефон жасырылады)
-│   ├── whatsapp/
-│   │   ├── client.ts                     # text, list, buttons, image, template жіберу
-│   │   ├── signature.ts                  # X-Hub-Signature-256 тексеру
-│   │   ├── parse-webhook.ts              # Meta payload → ішкі формат
-│   │   └── types.ts
-│   ├── bot/
-│   │   ├── engine.ts                     # state machine: хабарлама → күй → жауап
-│   │   ├── commands.ts                   # "меню", "0", "менеджер", "стоп", нөмірлер
-│   │   ├── flows/                        # main-menu, availability, price, supply,
-│   │   │                                 # preorder, order, monobouquet, repeat, handoff
-│   │   ├── texts/ru.ts, texts/kk.ts      # барлық бот мәтіндері (орыс/қазақ)
-│   │   ├── ui.ts                         # батырма/тізім құрастыру (WhatsApp лимиттерімен)
-│   │   └── language.ts                   # тілді анықтау
-│   ├── ai/intent-parser.ts               # еркін мәтін → {тауар, саны, күн} (міндетті емес)
-│   ├── services/                         # products, stock, orders, preorders, supplies,
-│   │                                     # customers, broadcasts, notifications, settings, analytics
-│   ├── notify/                           # telegram.ts, whatsapp-template.ts
-│   └── security/                         # rate-limit.ts, redact.ts, auth-guard.ts
-├── components/                           # Admin UI компоненттері
-├── lib/                                  # ортақ утилиталар (₸ форматтау, zod схемалар)
+│   ├── env.ts                            ✅ .env тексеру (zod)
+│   ├── db.ts                             ✅ Prisma client
+│   ├── logger.ts                         ✅ лог (token/телефон жасырылады)
+│   ├── auth/                             ✅ сессия, пароль, логин rate-limit
+│   ├── services/
+│   │   ├── order-status.ts               ✅ статус ережелері (таза функциялар)
+│   │   ├── stock.ts                      ✅ physical/reserved/available логикасы
+│   │   ├── settings.ts                   ✅
+│   │   └── products, supplies, orders, preorders, monobouquets, customers,
+│   │       notifications, broadcasts, analytics        # 2–6-кезеңдер
+│   ├── whatsapp/                         # 3-кезең: client, signature, parse-webhook
+│   ├── bot/                              # 3–4-кезең: engine, commands, flows/, texts/ru.ts, texts/kk.ts
+│   └── notify/telegram.ts                # 4-кезең
+├── components/admin/                     ✅ мәзір
+├── lib/pricing.ts                        ✅ баға ережелері, ₸ форматы
 ├── prisma/
-│   ├── schema.prisma
-│   ├── migrations/
-│   └── seed.ts                           # алғашқы админ + категориялар
-├── tests/                                # бот сценарийлері, stock логикасы (vitest)
-├── docs/                                 # ARCHITECTURE.md, META_SETUP.md, DEPLOY.md
-├── Dockerfile
-├── docker-compose.yml                    # app + postgres (жергілікті / VPS)
-└── .env.example                          # барлық айнымалылар, мәнсіз
+│   ├── schema.prisma                     ✅
+│   ├── migrations/                       ✅ (CHECK шектеулерімен)
+│   └── seed.ts                           ✅ категориялар, баптаулар, бірінші OWNER
+├── tests/                                ✅ vitest (stock, баға, статус, лог)
+├── docs/                                 ✅ ARCHITECTURE.md, SETUP.md
+├── Dockerfile, docker-compose.yml        ✅ (VPS-ке көшкен жағдайға балама)
+└── .env.example                          ✅ барлық айнымалылар, мәнсіз
 ```
 
 ---
 
-## 3. Database schema (Prisma — жоба)
+## 3. Database schema
 
-Талап етілген модельдердің бәрі бар: Customer, Product, Category, Stock, Supply, Order, OrderItem, PreOrder, Message, Broadcast, Admin. Қосымша: StockMovement (қалдық журналы), SupplyItem, PreOrderItem, Conversation (бот күйі), BroadcastRecipient, Notification, PriceHistory, OrderStatusHistory, Setting, AuditLog.
+Толық схема: [`prisma/schema.prisma`](../prisma/schema.prisma) (түсініктемелерімен). Мұнда — негізгісі.
 
-```prisma
-generator client {
-  provider = "prisma-client-js"
-}
+| Топ | Модельдер |
+|---|---|
+| Админ | `Admin` (OWNER/MANAGER), `LoginAttempt` (brute-force қорғанысы), `AuditLog` |
+| CRM | `Customer` (waId, аты, компания, тип SHOP/FLORIST/EVENT/RESELLER/RETAIL/OTHER, қала, қандай гүл алады, статистика, рассылкаға рұқсат) |
+| Каталог | `Category`, `Product`, `Stock`, `StockMovement`, `PriceHistory` |
+| Поставка | `Supply`, `SupplyItem` |
+| Тапсырыс | `Order`, `OrderItem`, `OrderStatusHistory`, `PreOrder`, `PreOrderItem`, `MonobouquetRequest` |
+| Чат | `Conversation` (бот күйі), `Message` |
+| Рассылка | `Broadcast`, `BroadcastRecipient` |
+| Жүйе | `Notification`, `Setting` |
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-// ───────── Enums ─────────
-enum AdminRole        { OWNER MANAGER }
-enum CustomerType     { SHOP FLORIST EVENT RESELLER RETAIL OTHER }
-enum CustomerStatus   { NEW ACTIVE VIP BLOCKED }
-enum Language         { RU KK }
-enum ProductKind      { WHOLESALE MONOBOUQUET }
-enum ProductStatus    { ACTIVE HIDDEN ARCHIVED }
-enum SupplyStatus     { PLANNED PREORDER_OPEN PREORDER_CLOSED ARRIVED CLOSED CANCELLED }
-enum OrderStatus      { NEW PENDING CONFIRMED PAID READY COMPLETED CANCELLED }
-enum OrderSource      { WHATSAPP_BOT MANAGER INSTAGRAM PREORDER OTHER }
-enum PreOrderStatus   { NEW CONFIRMED CONVERTED CANCELLED }
-enum StockMoveType    { SUPPLY_IN ORDER_OUT ORDER_RETURN ADJUSTMENT WRITE_OFF }
-enum MsgDirection     { IN OUT }
-enum ConversationMode { BOT MANAGER }
-enum BroadcastStatus  { DRAFT APPROVED SENDING SENT CANCELLED }
-enum RecipientStatus  { PENDING SENT DELIVERED READ FAILED SKIPPED }
-
-// ───────── Админдер ─────────
-model Admin {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String
-  name          String
-  role          AdminRole @default(MANAGER)
-  isActive      Boolean   @default(true)
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-
-  handledOrders       Order[]        @relation("OrderHandler")
-  createdBroadcasts   Broadcast[]    @relation("BroadcastCreator")
-  approvedBroadcasts  Broadcast[]    @relation("BroadcastApprover")
-  sentMessages        Message[]
-  stockMovements      StockMovement[]
-  auditLogs           AuditLog[]
-}
-
-// ───────── CRM: клиенттер ─────────
-model Customer {
-  id             String         @id @default(cuid())
-  waId           String         @unique          // WhatsApp нөмірі, мыс. 77011234567
-  profileName    String?                         // WhatsApp профиліндегі ат
-  name           String?                         // клиент өзі айтқан ат
-  companyName    String?
-  type           CustomerType   @default(OTHER)
-  city           String?
-  language       Language       @default(RU)
-  status         CustomerStatus @default(NEW)
-  marketingOptIn Boolean        @default(false)   // рассылкаға рұқсат
-  optInAt        DateTime?
-  optOutAt       DateTime?
-  notes          String?                         // менеджер жазбасы
-  // Денормализацияланған статистика (тапсырыс COMPLETED болғанда жаңарады)
-  ordersCount    Int            @default(0)
-  totalSpent     Int            @default(0)      // ₸
-  lastOrderAt    DateTime?
-  firstSeenAt    DateTime       @default(now())
-  lastInboundAt  DateTime?                       // 24 сағаттық терезе үшін
-
-  preferredCategories Category[]
-  orders         Order[]
-  preOrders      PreOrder[]
-  messages       Message[]
-  conversation   Conversation?
-  broadcastRecipients BroadcastRecipient[]
-  notifications  Notification[]
-
-  @@index([type])
-  @@index([lastOrderAt])
-}
-
-// ───────── Каталог ─────────
-model Category {
-  id        String    @id @default(cuid())
-  name      String                               // "Роза", "Spray rose"
-  nameKk    String?
-  slug      String    @unique
-  emoji     String?                              // 🌹
-  sortOrder Int       @default(0)
-  isActive  Boolean   @default(true)
-  products  Product[]
-  customers Customer[]
-}
-
-model Product {
-  id              String        @id @default(cuid())
-  categoryId      String
-  category        Category      @relation(fields: [categoryId], references: [id])
-  name            String                          // "Роза"
-  variety         String?                         // сорт: "Red Naomi"
-  color           String?
-  lengthCm        Int?                            // 60, 70
-  stemsPerPack    Int                             // упаковкадағы дана
-  pricePerPack    Int                             // ₸, бүтін сан
-  minOrderPacks   Int           @default(1)
-  kind            ProductKind   @default(WHOLESALE)
-  status          ProductStatus @default(ACTIVE)
-  photoUrl        String?
-  description     String?
-  sortOrder       Int           @default(0)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  stock           Stock?
-  stockMovements  StockMovement[]
-  priceHistory    PriceHistory[]
-  supplyItems     SupplyItem[]
-  orderItems      OrderItem[]
-  preOrderItems   PreOrderItem[]
-
-  @@index([categoryId, status])
-}
-
-model Stock {
-  productId         String   @id
-  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity          Int      @default(0)          // нақты қалдық, упаковка
-  lowStockThreshold Int?                          // бос болса — жалпы баптаудан
-  updatedAt         DateTime @updatedAt
-  // CHECK (quantity >= 0) — migration ішінде SQL арқылы қосылады
-}
-
-model StockMovement {                             // қалдықтың әр өзгерісі
-  id         String        @id @default(cuid())
-  productId  String
-  product    Product       @relation(fields: [productId], references: [id])
-  type       StockMoveType
-  delta      Int                                  // +10 / -5
-  balance    Int                                  // өзгерістен кейінгі қалдық
-  orderId    String?
-  order      Order?        @relation(fields: [orderId], references: [id])
-  supplyId   String?
-  supply     Supply?       @relation(fields: [supplyId], references: [id])
-  adminId    String?
-  admin      Admin?        @relation(fields: [adminId], references: [id])
-  note       String?
-  createdAt  DateTime      @default(now())
-
-  @@index([productId, createdAt])
-}
-
-model PriceHistory {
-  id          String   @id @default(cuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  oldPrice    Int
-  newPrice    Int
-  changedById String?
-  createdAt   DateTime @default(now())
-}
-
-// ───────── Поставкалар ─────────
-model Supply {
-  id               String       @id @default(cuid())
-  title            String?                        // "Поставка №12"
-  expectedDate     DateTime     @db.Date          // админ енгізеді
-  preorderDeadline DateTime?
-  arrivedAt        DateTime?
-  status           SupplyStatus @default(PLANNED)
-  notes            String?
-  reminderSentAt   DateTime?                      // "3 күн қалды" ескертуі жіберілді ме
-  createdAt        DateTime     @default(now())
-
-  items            SupplyItem[]
-  preOrders        PreOrder[]
-  orders           Order[]
-  stockMovements   StockMovement[]
-  broadcasts       Broadcast[]
-
-  @@index([status, expectedDate])
-}
-
-model SupplyItem {                                // поставкада қандай позициялар күтіледі
-  id            String  @id @default(cuid())
-  supplyId      String
-  supply        Supply  @relation(fields: [supplyId], references: [id], onDelete: Cascade)
-  productId     String
-  product       Product @relation(fields: [productId], references: [id])
-  expectedQty   Int?
-  receivedQty   Int?                              // келгенде админ енгізеді → stock-қа қосылады
-  preorderLimit Int?                              // предзаказ лимиті (бос = шектеусіз)
-
-  @@unique([supplyId, productId])
-}
-
-// ───────── Тапсырыстар ─────────
-model Order {
-  id             String      @id @default(cuid())
-  number         String      @unique              // TF-000123
-  customerId     String
-  customer       Customer    @relation(fields: [customerId], references: [id])
-  status         OrderStatus @default(NEW)
-  source         OrderSource @default(WHATSAPP_BOT)
-  supplyId       String?
-  supply         Supply?     @relation(fields: [supplyId], references: [id])
-  preOrderId     String?     @unique
-  preOrder       PreOrder?   @relation(fields: [preOrderId], references: [id])
-  totalAmount    Int                               // ₸, тапсырыс кезіндегі баға бойынша
-  neededBy       DateTime?   @db.Date
-  comment        String?
-  stockDeductedAt DateTime?                         // stock бір рет қана азаяды
-  confirmedAt    DateTime?
-  paidAt         DateTime?                          // ТЕК админ қояды
-  completedAt    DateTime?
-  cancelledAt    DateTime?
-  cancelReason   String?
-  handledById    String?
-  handledBy      Admin?      @relation("OrderHandler", fields: [handledById], references: [id])
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  items          OrderItem[]
-  statusHistory  OrderStatusHistory[]
-  stockMovements StockMovement[]
-
-  @@index([status, createdAt])
-  @@index([customerId])
-}
-
-model OrderItem {
-  id           String  @id @default(cuid())
-  orderId      String
-  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product @relation(fields: [productId], references: [id])
-  quantity     Int                                 // упаковка
-  unitPrice    Int                                 // сол кездегі баға (snapshot)
-  lineTotal    Int
-  productLabel String                              // "Роза Red Naomi 70 см" (snapshot)
-}
-
-model OrderStatusHistory {
-  id          String       @id @default(cuid())
-  orderId     String
-  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  fromStatus  OrderStatus?
-  toStatus    OrderStatus
-  changedById String?
-  note        String?
-  createdAt   DateTime     @default(now())
-}
-
-model PreOrder {
-  id              String         @id @default(cuid())
-  number          String         @unique           // PO-000045
-  customerId      String
-  customer        Customer       @relation(fields: [customerId], references: [id])
-  supplyId        String
-  supply          Supply         @relation(fields: [supplyId], references: [id])
-  status          PreOrderStatus @default(NEW)
-  neededBy        DateTime?      @db.Date
-  contactName     String                            // тапсырыс кезіндегі ат
-  companyName     String?
-  comment         String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  items           PreOrderItem[]
-  order           Order?                             // поставка келгенде Order-ге айналады
-
-  @@index([supplyId, status])
-}
-
-model PreOrderItem {
-  id         String   @id @default(cuid())
-  preOrderId String
-  preOrder   PreOrder @relation(fields: [preOrderId], references: [id], onDelete: Cascade)
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id])
-  quantity   Int
-}
-
-// ───────── Чат ─────────
-model Conversation {                              // боттың әр клиентпен күйі
-  customerId    String           @id
-  customer      Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  state         String           @default("MAIN_MENU")
-  context       Json             @default("{}")  // таңдалған тауар, саны, т.б.
-  mode          ConversationMode @default(BOT)
-  handoffAt     DateTime?
-  assignedToId  String?
-  lastRequest   String?                          // менеджерге көрсету үшін
-  updatedAt     DateTime         @updatedAt
-}
-
-model Message {
-  id          String       @id @default(cuid())
-  customerId  String
-  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  direction   MsgDirection
-  waMessageId String?      @unique                // Meta wamid → қайталанбау кепілі
-  type        String                              // text, interactive, image, template
-  body        String?
-  payload     Json?
-  status      String?                             // sent / delivered / read / failed
-  error       String?
-  sentById    String?                             // менеджер қолмен жазса
-  sentBy      Admin?       @relation(fields: [sentById], references: [id])
-  createdAt   DateTime     @default(now())
-
-  @@index([customerId, createdAt])
-}
-
-// ───────── Рассылкалар ─────────
-model Broadcast {
-  id               String          @id @default(cuid())
-  title            String
-  templateName     String                          // Meta-да бекітілген шаблон
-  templateLanguage String          @default("ru")
-  templateParams   Json            @default("[]")
-  audience         Json                            // сүзгі: тип, категория, соңғы тапсырыс т.б.
-  status           BroadcastStatus @default(DRAFT)
-  supplyId         String?
-  supply           Supply?         @relation(fields: [supplyId], references: [id])
-  createdById      String
-  createdBy        Admin           @relation("BroadcastCreator", fields: [createdById], references: [id])
-  approvedById     String?
-  approvedBy       Admin?          @relation("BroadcastApprover", fields: [approvedById], references: [id])
-  approvedAt       DateTime?
-  sentAt           DateTime?
-  createdAt        DateTime        @default(now())
-  recipients       BroadcastRecipient[]
-}
-
-model BroadcastRecipient {
-  id          String          @id @default(cuid())
-  broadcastId String
-  broadcast   Broadcast       @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
-  customerId  String
-  customer    Customer        @relation(fields: [customerId], references: [id])
-  status      RecipientStatus @default(PENDING)
-  waMessageId String?
-  error       String?
-  sentAt      DateTime?
-
-  @@unique([broadcastId, customerId])
-}
-
-// ───────── Жүйелік ─────────
-model Notification {                              // админ панельдегі 🔔
-  id         String    @id @default(cuid())
-  type       String                               // NEW_PREORDER, NEW_ORDER, HANDOFF, SUPPLY_SOON, LOW_STOCK
-  title      String
-  body       String
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id])
-  readAt     DateTime?
-  createdAt  DateTime  @default(now())
-}
-
-model Setting {                                   // админ өзгертетін баптаулар
-  key       String   @id                          // low_stock_threshold, stock_deduct_on, address, ...
-  value     Json
-  updatedAt DateTime @updatedAt
-}
-
-model AuditLog {                                  // кім, қашан, не өзгертті
-  id        String   @id @default(cuid())
-  adminId   String?
-  admin     Admin?   @relation(fields: [adminId], references: [id])
-  action    String
-  entity    String
-  entityId  String?
-  diff      Json?
-  createdAt DateTime @default(now())
-}
-```
-
-### Қалдық (stock) логикасы
+### 3.1 Қалдық: physical / reserved / available
 
 ```
-Поставка ARRIVED ──(админ receivedQty енгізеді)──► Stock + (SUPPLY_IN)
-Order NEW / PENDING                               ► Stock өзгермейді
-Order → CONFIRMED (немесе PAID — баптауда)        ► Stock − (ORDER_OUT), бір транзакцияда,
-                                                     қалдық жетпесе — қате, админге ескерту
-Order → CANCELLED (stock бұрын азайған болса)     ► Stock + (ORDER_RETURN)
-Админ қолмен түзету / сынған гүл                   ► ADJUSTMENT / WRITE_OFF
-Instagram/телефон арқылы сату                     ► админ Order жасайды (source=INSTAGRAM)
+Stock
+  physicalQuantity   — қоймада нақты тұрған
+  reservedQuantity   — CONFIRMED тапсырыстарға бронь
+  availableQuantity  — сатуға бос. Бот клиентке ТЕК осыны көрсетеді.
+
+  Мысал: physical 20, reserved 5 → available 15
+
+  Базадағы CHECK: physical = reserved + available, әрқайсысы >= 0
 ```
 
-* `stockDeductedAt` өрісі бір тапсырыс үшін қалдықтың екі рет азаюына жол бермейді.
-* Азайту `UPDATE ... SET quantity = quantity - N WHERE quantity >= N` арқылы — екі менеджер бір уақытта растаса да, қалдық минусқа түспейді.
-* Предзаказ stock-қа әсер етпейді. Поставка келгенде админ «Предзаказдарды тапсырысқа айналдыру» батырмасын басады → әр PreOrder → Order (source=PREORDER), кейін әдеттегі CONFIRMED/PAID логикасы.
+| Оқиға | physical | reserved | available | Журнал (`StockMovement.type`) |
+|---|---|---|---|---|
+| Поставка келді (+N) | +N | | +N | `SUPPLY_IN` |
+| Тапсырыс NEW / PENDING | | | | — (әсер жоқ) |
+| → **CONFIRMED** (бронь) | | +N | −N | `RESERVE` |
+| → READY | | | | — |
+| → **PAID** немесе **COMPLETED** (қайсысы бірінші болса) | −N | −N | | `SALE_OUT` |
+| CONFIRMED/READY → **CANCELLED** | | −N | +N | `RELEASE` |
+| PAID → CANCELLED, «қоймаға қайтару» = иә | +N | | +N | `RETURN_IN` |
+| PAID → CANCELLED, «қоймаға қайтару» = жоқ | | | | — (гүл кетіп қалған) |
+| Админ түзетуі | ±N | | ±N | `ADJUSTMENT_IN` / `ADJUSTMENT_OUT` |
+| Бүлінген гүлді шығару | −N | | −N | `WRITE_OFF` |
 
-### Бизнес циклі (жүйенің өзегі)
+**Екі рет азаюдан қорғаныс:**
+* `Order.stockState` (NONE → RESERVED → DEDUCTED / RELEASED / RETURNED) — бір тапсырыс қалдықты әр қадамда тек бір рет өзгертеді.
+* Статус өзгерту «compare-and-set» арқылы: екі менеджер бір уақытта «Подтвердить» басса — біреуі ғана өтеді.
+* Әр азайту шартпен: `UPDATE … WHERE availableQuantity >= N`. Соңғы 5 упаковкаға екі клиент таласса — біреуі ғана алады, екіншісіне «Недостаточно остатка».
+* Қате болса бүкіл транзакция кері қайтады (статус та, қалдық та өзгермейді).
+* Осының бәрі `tests/stock.test.ts` ішінде нақты базада тексерілген.
+
+**Статус өтулері:** NEW → PENDING → CONFIRMED → (PAID ↔ READY) → COMPLETED; CANCELLED — COMPLETED-тен басқа кез келгенінен. NEW-ден тікелей PAID-ке өтуге болмайды (алдымен бронь). PAID статусын **тек админ** қояды.
+
+Предзаказ stock-қа әсер етпейді. Поставка келгенде админ предзаказдарды тапсырысқа айналдырады → әдеттегі CONFIRMED/PAID логикасы. Instagram/телефон арқылы сату — админ қолмен Order жасайды (source=INSTAGRAM), қалдық сол ережемен өзгереді.
+
+### 3.2 Баға
+
+| Өріс | Мағынасы |
+|---|---|
+| `saleUnit` | Клиент қалай алады: `PACKAGE` (упаковкамен) немесе `UNIT` (данамен). Қалдық пен тапсырыс саны осы бірлікте |
+| `packageQuantity` | 1 упаковкадағы дана саны — **әр тауарға админ өзі енгізеді** (роза 20, spray rose басқа…) |
+| `pricePerPackage` | 1 упаковка бағасы, ₸ |
+| `pricePerUnit` | 1 дана бағасы, ₸ |
+| `minOrderQty` | Минималды тапсырыс (saleUnit бірлігінде) |
+
+Ережелер (`lib/pricing.ts`):
+* Бот тек админ енгізген бағаны көрсетеді. Упаковка бағасын дана бағасынан (немесе керісінше) **өзі есептемейді**.
+* Сату бірлігінің бағасы жоқ болса немесе упаковкадағы саны берілмесе — тауарды тапсырыс беруге болмайды, бот «Цену уточнит менеджер» дейді.
+* Баға өзгергенде `PriceHistory`-ге жазылады. Тапсырыс кезіндегі баға `OrderItem.unitPrice` ішінде сақталады — кейін баға өзгерсе де, ескі тапсырыс сомасы өзгермейді.
+
+### 3.3 Монобукет (1-нұсқа)
 
 ```
-Supply PLANNED ─► PREORDER_OPEN ─► (рассылка, админ растаса) ─► PREORDER_CLOSED
-      ▲                                                               │
-      │                                                            ARRIVED
-      │                                                               │
-      │                          Stock + ◄─ receivedQty               │
-      │                          Предзаказ → Order → CONFIRMED → Stock −
-      │                          Қалғаны WhatsApp/Instagram арқылы сатылады
-      └──────────── CLOSED ◄──── келесі поставка жоспарланады ◄───────┘
+Клиент: гүл түрі → саны → көлемі → орау (қажет болса) → күні → комментарий
+   ↓
+MonobouquetRequest (NEW) → Admin panel + Telegram: «💐 Новый запрос на монобукет»
+   ↓
+Менеджер/админ бағаны қояды (QUOTED) → клиентке бағасы жіберіледі
+   ↓
+Клиент келіседі (ACCEPTED) → менеджер Order жасайды (CONVERTED)
 ```
+
+* Баға **тек админ қойғаннан кейін** клиентке көрсетіледі.
+* Stock-қа автоматты әсер жоқ (дайын stock-ты азайтудың күрделі логикасы 1-нұсқада жасалмайды).
+* Көлем мен орау нұсқаларының тізімін админ Настройки бетінде толтырады; тізім бос болса бот клиенттен еркін мәтінмен сұрайды.
 
 ---
 
@@ -555,9 +228,9 @@ Supply PLANNED ─► PREORDER_OPEN ─► (рассылка, админ рас�
   │                    "менеджер" → менеджерге өту;  "стоп" → рассылкадан шығу
   ├─ Нөмір "1".."7" (батырма жоқ клиенттер үшін)     → мәзір пункті
   ├─ Күй күтетін мәтін (саны, аты, компания, күн)    → валидация → келесі қадам
-  ├─ Еркін мәтін + AI қосулы → {тауар, саны, күн} → базадан тексеру
-  │                             → "Правильно понял: …?" [Да] [Изменить] [Менеджер]
+  ├─ Кілт сөздер: "роза", "хризантема", "наличие", "прайс", "поставка" → тиісті бөлім
   └─ Түсінбеді → "Уточню информацию у менеджера." + [Меню] [Менеджер]
+     (2-фазада осы жерге AI қосылады — тек құрылымды дерек алу үшін)
 ```
 
 Conversation.mode = MANAGER болса, бот үндемейді; менеджер Admin panel → Чаттар арқылы жауап береді. Менеджер «Диалогты жабу» басқанда немесе клиент «меню» жазғанда бот қайта қосылады.
@@ -586,15 +259,16 @@ Conversation.mode = MANAGER болса, бот үндемейді; менедж�
 | Бөлім | Не істеуге болады |
 |---|---|
 | 📊 **Dashboard** | Бүгін/апта/ай: жаңа клиенттер, тапсырыстар, предзаказдар, сатылым ₸, ТОП гүлдер, қайта тапсырыс берген клиенттер, cancelled, ⚠️ LOW STOCK тізімі, «📦 Поставка через 3 дня. Предзаказов: XX. Забронировано: XX упаковок» баннері, 🔔 хабарламалар. |
-| 📦 **Товары** | Тауар қосу/өзгерту: фото, атауы, категория, сорт, ұзындығы, баға, упаковка саны, қалдық, минимум, статус (белсенді/жасырын). Монобукеттер — осы жерде, түрі MONOBOUQUET. |
-| 📊 **Остатки** | Барлық тауардың қалдығы бір кестеде, түзету (+/−, себебімен), қалдық журналы, LOW STOCK белгісі. |
-| 💰 **Цены** | Бағаларды бір кестеде тез өзгерту, баға тарихы. Сақтаған сәттен бот жаңа бағаны көрсетеді. |
+| 📦 **Товары** | Тауар қосу/өзгерту: фото, атауы, категория, сорт, ұзындығы, сату бірлігі (упаковка/дана), упаковкадағы саны, дана бағасы, упаковка бағасы, қалдық, минимум, статус. |
+| 📊 **Остатки** | Әр тауар: физикалық / бронь / бос. Түзету (+/−, себебімен), бүлінгенін шығару, қалдық журналы, LOW STOCK белгісі. |
+| 💰 **Цены** | Бағаларды бір кестеде тез өзгерту (дана/упаковка), баға тарихы. Сақтаған сәттен бот жаңа бағаны көрсетеді. |
+| 💐 **Монобукеты** | Клиент сұраныстары, баға қою, клиентке жіберу, тапсырысқа айналдыру. |
 | 🚚 **Поставки** | Жаңа поставка (дата, позициялар), «🟢 Открыть предзаказ» / «Закрыть», «Поставка пришла» (келген сандарды енгізу → stock), предзаказдар тізімі және жиынтығы (қай гүлден қанша упаковка), «Предзаказдарды тапсырысқа айналдыру». |
 | 📋 **Заказы / Предзаказы** | Сүзгі статус бойынша, тапсырыс карточкасы, статус өзгерту (NEW→…→COMPLETED), қолмен тапсырыс қосу (Instagram/телефон). |
 | 👥 **Клиенты** | CRM: аты, нөмірі, компания, тип, қала, қандай гүл алады, тапсырыс тарихы, жалпы сома, статус, жазба, рассылкаға рұқсат. Нөмір толық тек OWNER-ге көрінеді. |
 | 💬 **Чаттар** | Менеджерді күтіп тұрған клиенттер, хат алмасу тарихы, клиентке жауап жазу, диалогты ботқа қайтару. |
 | 📢 **Рассылки** | Шаблон таңдау → аудитория сүзгісі → алдын ала қарау (алушылар саны) → **Растау** → жіберу, нәтиже (жеткізілді/оқылды/қате). |
-| ⚙️ **Настройки** | LOW STOCK шегі, stock қай статуста азаяды (CONFIRMED/PAID), мекенжай, жұмыс уақыты, менеджер хабарлама арналары, админдер мен рөлдер (OWNER/MANAGER). |
+| ⚙️ **Настройки** | LOW STOCK шегі, мекенжай, жұмыс уақыты, монобукет көлемдері/ораулары, Telegram, админдер мен рөлдер (OWNER/MANAGER). |
 | 🧪 **Симулятор** | Ботты браузерде тексеру — WhatsApp-сыз, сол логикамен. |
 
 Рөлдер: **OWNER** — бәрі; **MANAGER** — тапсырыстар, чаттар, клиенттер (баға/баптау/рассылка растау жоқ).
@@ -620,18 +294,16 @@ Conversation.mode = MANAGER болса, бот үндемейді; менедж�
 
 | Айнымалы | Бұл не | Қайдан |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL мекенжайы | Хостинг таңдауына байланысты: Neon/Supabase панелінен көшіресіз, немесе Docker-да автоматты |
+| `DATABASE_URL` | PostgreSQL (Neon, pooled) | Vercel → Storage → Neon қосқанда автоматты қойылады |
+| `DATABASE_URL_UNPOOLED` | PostgreSQL (Neon, тікелей) — миграция үшін | Сол жерден автоматты |
 | `AUTH_SECRET` | Админ сессиясын шифрлау | Мен беретін команда арқылы кездейсоқ жасалады |
 | `APP_BASE_URL` | Сайттың адресі, мыс. `https://talshyn.example.kz` | Deploy-дан кейін |
 | `CRON_SECRET` | Cron endpoint-терді қорғау | Кездейсоқ жасалады |
 | `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD` | Бірінші OWNER аккаунт | Сіз таңдайсыз; бірінші кіргеннен кейін пароль ауыстырылады |
 
-### Фото сақтау (біреуі)
+### Фото сақтау
 
-| Нұсқа | Айнымалылар |
-|---|---|
-| Vercel Blob (Vercel таңдасаңыз) | `BLOB_READ_WRITE_TOKEN` |
-| S3-үйлесімді (Cloudflare R2 / AWS S3 / Supabase Storage) | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL` |
+**Vercel Blob** (Vercel таңдалғандықтан): `BLOB_READ_WRITE_TOKEN` — Vercel → Storage → Blob → Create арқылы автоматты қосылады (2-кезеңде).
 
 WhatsApp фотоны публичный HTTPS сілтеме арқылы алады, сондықтан фото жергілікті дискте емес, осы сақтау орнында болуы керек.
 
@@ -639,9 +311,8 @@ WhatsApp фотоны публичный HTTPS сілтеме арқылы ал�
 
 | Айнымалы | Не үшін |
 |---|---|
-| `ANTHROPIC_API_KEY` | AI еркін мәтінді түсіну (console.anthropic.com). Жоқ болса бот тек батырма/нөмір/кілт сөздермен жұмыс істейді. |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_MANAGER_CHAT_ID` | Менеджерге жедел хабарлама Telegram-ға (тегін, 24 сағ. шектеуі жоқ) |
-| `MANAGER_WHATSAPP_NUMBERS` | Менеджерге WhatsApp арқылы хабарлама (Utility template керек, ақылы) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_MANAGER_CHAT_ID` | Менеджерге жедел хабарлама Telegram-ға (тегін, 24 сағ. шектеуі жоқ) — **таңдалды**, 4-кезеңде |
+| `ANTHROPIC_API_KEY` | AI — **2-фазада ғана** |
 
 ### Аккаунттан тыс не керек
 
@@ -653,7 +324,6 @@ WhatsApp фотоны публичный HTTPS сілтеме арқылы ал�
    * `supply_preorder_open` (Marketing) — жаңа поставка, предзаказ ашық
    * `repeat_order_offer` (Marketing) — «өткен жолы алған позиция қайта бар»
    * `order_status_update` (Utility) — тапсырыс статусы
-   * `manager_alert` (Utility, тек менеджерге WhatsApp арқылы хабарлама керек болса)
 
 ---
 
@@ -667,7 +337,7 @@ WhatsApp фотоны публичный HTTPS сілтеме арқылы ал�
 | Webhook, қолтаңба тексеру, қауіпсіздік | ✅ | Callback URL мен Verify token-ды Meta Console-ға қою |
 | WhatsApp-қа жіберу | ✅ | Access token, Phone number ID, App secret енгізу |
 | Рассылка | ✅ механизм | Template-терді Meta-да бекіту, төлем картасы |
-| AI мәтін түсіну | ✅ (қосу/өшіру) | Қаласаңыз API key алу |
+| AI мәтін түсіну | 2-фаза | — |
 | Deploy (Docker / Vercel) | ✅ файлдар + нұсқаулық | Аккаунт ашу, «Deploy» басу, `.env` мәндерін енгізу |
 | Meta Business verification, нөмір | ❌ (мен істей алмаймын) | Құжаттар, SIM |
 
@@ -675,19 +345,19 @@ WhatsApp фотоны публичный HTTPS сілтеме арқылы ал�
 
 ## 8. Кезеңдер жоспары
 
-Әр кезеңнің соңында: не жасалды, сіз не басасыз/енгізесіз, **TEST CHECKLIST**.
+Әр кезеңнің соңында: не жасалды, қандай файлдар өзгерді, сіз не істейсіз, **TEST CHECKLIST**, келесі кезең.
 
-| # | Кезең | Нәтиже |
-|---|---|---|
-| 0 | **Архитектура** (осы құжат) | Сіздің мақұлдауыңыз |
-| 1 | Негіз: Prisma schema, миграция, seed, `.env` тексеру, Docker, админ кіру | Админ панельге кіре аласыз |
-| 2 | Admin: Товары, Категории, Остатки, Цены, Поставки, фото жүктеу | Каталогты толтыра аласыз |
-| 3 | WhatsApp webhook + client + Главное меню, Наличие, Прайс, Следующая поставка, Адрес, Монобукеты + 🧪 Симулятор | Бот жауап береді |
-| 4 | Предзаказ және тапсырыс flow, растау экраны, stock=0 сценарийі, менеджерге хабарлама | Бот тапсырыс жинайды |
-| 5 | Заказы (статустар + stock логикасы), CRM Клиенты, қайта тапсырыс, менеджерге өту + Чаттар | Толық сату циклі |
-| 6 | Рассылки (template, opt‑in/opt‑out, растау), cron: «3 күн қалды», LOW STOCK, Dashboard аналитика | Маркетинг + аналитика |
-| 7 | AI intent parser (міндетті емес), қазақ тілі | Еркін мәтінді түсіну |
-| 8 | Production deploy + Meta-ны толық баптау + **толық іске қосу нұсқаулығы** | Нақты клиенттер жаза алады |
+| # | Кезең | Нәтиже | Күйі |
+|---|---|---|---|
+| 0 | Архитектура | Мақұлданды | ✅ |
+| 1 | Негіз: Prisma schema + миграция (CHECK), seed, `.env` тексеру, stock логикасы + тесттер, админ кіру, Docker, Vercel build | Админ панельге кіре аласыз | ✅ |
+| 2 | Admin: Товары, Остатки, Цены, Поставки, Настройки, фото (Vercel Blob) | Каталогты толтыра аласыз | |
+| 3 | WhatsApp webhook + client + Главное меню, Наличие, Прайс, Следующая поставка, Адрес + 🧪 Симулятор | Бот жауап береді | |
+| 4 | Предзаказ, тапсырыс, монобукет сұранысы, растау экраны, stock=0 сценарийі, Telegram хабарламасы | Бот тапсырыс жинайды | |
+| 5 | Заказы (статустар + stock), Клиенты (CRM), қайта тапсырыс, менеджерге өту + Чаты | Толық сату циклі | |
+| 6 | Рассылки (template, opt-in/out, растау), cron: «3 күн қалды», LOW STOCK, Dashboard аналитика | Маркетинг + аналитика | |
+| 7 | Production: Meta-ны толық баптау, нақты нөмір, толық іске қосу нұсқаулығы | Нақты клиенттер жаза алады | |
+| 2-фаза | AI (еркін мәтінді түсіну), қазақ тілін кеңейту | | |
 
 ---
 
@@ -697,9 +367,9 @@ WhatsApp фотоны публичный HTTPS сілтеме арқылы ал�
 |---|---|
 | Webhook verification | GET `hub.verify_token` == `WHATSAPP_VERIFY_TOKEN` тексеріледі (constant-time) |
 | Signature verification | POST денесінің HMAC‑SHA256 (`WHATSAPP_APP_SECRET`) == `X-Hub-Signature-256`, raw body бойынша |
-| Authentication | Auth.js credentials, пароль bcrypt хэші, httpOnly + secure cookie, логин әрекеттеріне лимит |
-| Admin authorization | Әр server action / API-да рөл тексеру (OWNER/MANAGER), middleware `/admin/*` қорғайды |
-| Rate limiting | Webhook: бір нөмірге; логин: IP-ге; admin API: сессияға |
+| Authentication | Email + пароль (bcrypt, cost 12), подписанный JWT httpOnly + secure + SameSite cookie, 12 сағат. Пароль ауысқанда басқа құрылғылардағы сессиялар өшеді (`tokenVersion`). Бірінші кіргенде парольді ауыстыру міндетті |
+| Admin authorization | `proxy.ts` `/admin/*` қорғайды + әр бет/server action ішінде `requireAdmin()` базадан тексереді (белсенді ме, рөлі) |
+| Rate limiting | Логин: email-ге 15 минутта 5 қате, IP-ге 20 (базада — Vercel-дің бірнеше данасында да дұрыс); webhook: бір нөмірге (3-кезең) |
 | Input validation | Барлық кіріс zod схемалары арқылы (саны > 0, минимумнан кем емес, т.б.) |
 | SQL injection | Тек Prisma (параметрленген сұраныстар), raw SQL жоқ немесе `Prisma.sql` арқылы ғана |
 | XSS | React автоматты escape, `dangerouslySetInnerHTML` қолданылмайды, CSP header-лер, клиент мәтіндері тек мәтін ретінде |
@@ -710,16 +380,6 @@ WhatsApp фотоны публичный HTTPS сілтеме арқылы ал�
 
 ---
 
-## 10. Шешім керек сұрақтар
+## 10. Шешімдер
 
-Код жазуды бастау үшін осыларға жауап беріңіз:
-
-1. **Хостинг:**
-   A) **Vercel + Neon Postgres** (ұсынамын: сервер басқару жоқ, тегін бастауға болады, HTTPS автоматты)
-   B) Өз VPS-іңіз + Docker Compose (ps.kz / Hetzner, айына ~5–10 $, серверге өзіңіз жауаптысыз)
-2. **Нөмір:** бот үшін бөлек жаңа SIM (ұсынамын) ме, әлде қазіргі WhatsApp Business нөмірі ме?
-3. **Менеджерге хабарлама:** Admin panel + Telegram (ұсынамын, тегін) ме, әлде WhatsApp арқылы (template, ақылы)?
-4. **Stock қашан азаяды:** CONFIRMED кезінде (ұсынамын — бронь тез бекітіледі) ме, PAID кезінде ме? (Кейін баптаудан өзгертуге болады.)
-5. **Баға бірлігі:** баға **упаковкаға** ма, әлде **бір данаға**? Бір упаковкада әдетте қанша дана (роза 25? spray rose 10?)
-6. **Монобукеттер:** дайын тұрады ма (қалдығы бар), әлде тапсырыспен жасалады ма? Бағасы қалай есептеледі?
-7. **AI:** қазір қосамыз ба (Anthropic API key керек, аз ақылы), әлде кейін бе?
+Барлық сұраққа жауап берілді — жоғарыдағы «Бекітілген шешімдер» кестесін қараңыз.

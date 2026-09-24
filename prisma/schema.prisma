@@ -1,0 +1,600 @@
+// TALSHYN FLOWERS — database schema.
+// Архитектура және бизнес ережелері: docs/ARCHITECTURE.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Neon: DATABASE_URL — pooled, DATABASE_URL_UNPOOLED — тікелей (миграция үшін).
+  // Docker / жергілікті: екеуі бірдей мән.
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum AdminRole {
+  OWNER
+  MANAGER
+}
+
+enum CustomerType {
+  SHOP
+  FLORIST
+  EVENT
+  RESELLER
+  RETAIL
+  OTHER
+}
+
+enum CustomerStatus {
+  NEW
+  ACTIVE
+  VIP
+  BLOCKED
+}
+
+enum Language {
+  RU
+  KK
+}
+
+/// Қалдық пен тапсырыс саны қандай бірлікпен есептеледі.
+enum SaleUnit {
+  PACKAGE
+  UNIT
+}
+
+enum ProductStatus {
+  ACTIVE
+  HIDDEN
+  ARCHIVED
+}
+
+enum SupplyStatus {
+  PLANNED
+  PREORDER_OPEN
+  PREORDER_CLOSED
+  ARRIVED
+  CLOSED
+  CANCELLED
+}
+
+enum OrderStatus {
+  NEW
+  PENDING
+  CONFIRMED
+  PAID
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderSource {
+  WHATSAPP_BOT
+  MANAGER
+  INSTAGRAM
+  PREORDER
+  OTHER
+}
+
+/// Тапсырыстың қалдыққа әсері. Бір тапсырыс қалдықты тек бір рет өзгертеді.
+enum StockState {
+  NONE // әсер жоқ (NEW / PENDING)
+  RESERVED // резервте (CONFIRMED)
+  DEDUCTED // физикалық түрде шығарылды (PAID / COMPLETED)
+  RELEASED // резерв босатылды (CANCELLED, шығарылмай тұрып)
+  RETURNED // шығарылғаннан кейін қоймаға қайтарылды (CANCELLED + restock)
+}
+
+enum PreOrderStatus {
+  NEW
+  CONFIRMED
+  CONVERTED
+  CANCELLED
+}
+
+enum MonobouquetStatus {
+  NEW // менеджер қарауы керек
+  QUOTED // админ баға қойды, клиентке жіберілді
+  ACCEPTED // клиент келісті
+  REJECTED // клиент бас тартты
+  CONVERTED // Order-ге айналды
+  CANCELLED
+}
+
+enum StockMoveType {
+  SUPPLY_IN // поставка келді: physical+, available+
+  RESERVE // CONFIRMED: available-, reserved+
+  RELEASE // CANCELLED: reserved-, available+
+  SALE_OUT // PAID/COMPLETED: reserved-, physical-
+  RETURN_IN // шығарылған тапсырыс болдырылмады, қоймаға қайтты: physical+, available+
+  ADJUSTMENT_IN // админ түзетуі (+): physical+, available+
+  ADJUSTMENT_OUT // админ түзетуі (−): physical-, available-
+  WRITE_OFF // бүлінген гүл: physical-, available-
+}
+
+enum MsgDirection {
+  IN
+  OUT
+}
+
+enum ConversationMode {
+  BOT
+  MANAGER
+}
+
+enum BroadcastStatus {
+  DRAFT
+  APPROVED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum RecipientStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+}
+
+// ───────────────────────── Админдер ─────────────────────────
+
+model Admin {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  name               String
+  role               AdminRole @default(MANAGER)
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  /// Пароль ауысқанда +1 → ескі сессиялардың бәрі жарамсыз болады.
+  tokenVersion       Int       @default(0)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  handledOrders      Order[]              @relation("OrderHandler")
+  quotedMonobouquets MonobouquetRequest[]
+  createdBroadcasts  Broadcast[]          @relation("BroadcastCreator")
+  approvedBroadcasts Broadcast[]          @relation("BroadcastApprover")
+  sentMessages       Message[]
+  stockMovements     StockMovement[]
+  orderStatusChanges OrderStatusHistory[]
+  priceChanges       PriceHistory[]
+  auditLogs          AuditLog[]
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  /// email немесе IP (хэштелген емес, бірақ парольсіз)
+  key       String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
+
+// ───────────────────────── CRM ─────────────────────────
+
+model Customer {
+  id             String         @id @default(cuid())
+  /// WhatsApp нөмірі, халықаралық формат, "+" жоқ: 77011234567
+  waId           String         @unique
+  profileName    String?
+  name           String?
+  companyName    String?
+  type           CustomerType   @default(OTHER)
+  city           String?
+  language       Language       @default(RU)
+  status         CustomerStatus @default(NEW)
+  marketingOptIn Boolean        @default(false)
+  optInAt        DateTime?
+  optOutAt       DateTime?
+  notes          String?
+  ordersCount    Int            @default(0)
+  totalSpent     Int            @default(0)
+  lastOrderAt    DateTime?
+  firstSeenAt    DateTime       @default(now())
+  /// 24 сағаттық WhatsApp терезесін есептеу үшін
+  lastInboundAt  DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  preferredCategories Category[]
+  orders              Order[]
+  preOrders           PreOrder[]
+  monobouquets        MonobouquetRequest[]
+  messages            Message[]
+  conversation        Conversation?
+  broadcastRecipients BroadcastRecipient[]
+  notifications       Notification[]
+
+  @@index([type])
+  @@index([lastOrderAt])
+}
+
+// ───────────────────────── Каталог ─────────────────────────
+
+model Category {
+  id               String   @id @default(cuid())
+  name             String
+  nameKk           String?
+  slug             String   @unique
+  emoji            String?
+  sortOrder        Int      @default(0)
+  isActive         Boolean  @default(true)
+  /// Бұл гүл түрінен монобукет тапсыруға бола ма
+  allowMonobouquet Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  products     Product[]
+  customers    Customer[]
+  monobouquets MonobouquetRequest[]
+}
+
+model Product {
+  id              String        @id @default(cuid())
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id])
+  name            String
+  variety         String?
+  color           String?
+  lengthCm        Int?
+  /// Клиент қандай бірлікпен алады. Қалдық пен тапсырыс саны осы бірлікте.
+  saleUnit        SaleUnit      @default(PACKAGE)
+  /// 1 упаковкадағы дана саны — әр тауарға админ өзі енгізеді.
+  packageQuantity Int?
+  /// ₸, бүтін сан. Бот тек админ енгізген бағаны көрсетеді, өзі есептемейді.
+  pricePerUnit    Int?
+  pricePerPackage Int?
+  /// saleUnit бірлігінде
+  minOrderQty     Int           @default(1)
+  status          ProductStatus @default(ACTIVE)
+  photoUrl        String?
+  description     String?
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  stock          Stock?
+  stockMovements StockMovement[]
+  priceHistory   PriceHistory[]
+  supplyItems    SupplyItem[]
+  orderItems     OrderItem[]
+  preOrderItems  PreOrderItem[]
+
+  @@index([categoryId, status])
+}
+
+/// Инвариант (миграцияда CHECK):
+///   physicalQuantity = reservedQuantity + availableQuantity, бәрі >= 0
+model Stock {
+  productId         String   @id
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Қоймада нақты тұрған
+  physicalQuantity  Int      @default(0)
+  /// CONFIRMED тапсырыстарға бронь
+  reservedQuantity  Int      @default(0)
+  /// Сатуға бос = physical - reserved. Бот тек осыны көрсетеді.
+  availableQuantity Int      @default(0)
+  /// Бос болса — жалпы баптау (Setting: low_stock_threshold)
+  lowStockThreshold Int?
+  updatedAt         DateTime @updatedAt
+}
+
+model StockMovement {
+  id             String        @id @default(cuid())
+  productId      String
+  product        Product       @relation(fields: [productId], references: [id])
+  type           StockMoveType
+  /// Әрқашан оң сан; бағыты type арқылы анықталады
+  quantity       Int
+  /// Өзгерістен кейінгі күй (журнал үшін)
+  physicalAfter  Int
+  reservedAfter  Int
+  availableAfter Int
+  orderId        String?
+  order          Order?        @relation(fields: [orderId], references: [id])
+  supplyId       String?
+  supply         Supply?       @relation(fields: [supplyId], references: [id])
+  adminId        String?
+  admin          Admin?        @relation(fields: [adminId], references: [id])
+  note           String?
+  createdAt      DateTime      @default(now())
+
+  @@index([productId, createdAt])
+  @@index([orderId])
+}
+
+model PriceHistory {
+  id                 String   @id @default(cuid())
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  oldPricePerUnit    Int?
+  newPricePerUnit    Int?
+  oldPricePerPackage Int?
+  newPricePerPackage Int?
+  changedById        String?
+  changedBy          Admin?   @relation(fields: [changedById], references: [id])
+  createdAt          DateTime @default(now())
+
+  @@index([productId, createdAt])
+}
+
+// ───────────────────────── Поставкалар ─────────────────────────
+
+model Supply {
+  id               String       @id @default(cuid())
+  title            String?
+  expectedDate     DateTime     @db.Date
+  preorderDeadline DateTime?
+  arrivedAt        DateTime?
+  status           SupplyStatus @default(PLANNED)
+  notes            String?
+  reminderSentAt   DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  items          SupplyItem[]
+  preOrders      PreOrder[]
+  orders         Order[]
+  stockMovements StockMovement[]
+  broadcasts     Broadcast[]
+
+  @@index([status, expectedDate])
+}
+
+model SupplyItem {
+  id            String  @id @default(cuid())
+  supplyId      String
+  supply        Supply  @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product @relation(fields: [productId], references: [id])
+  expectedQty   Int?
+  receivedQty   Int?
+  preorderLimit Int?
+
+  @@unique([supplyId, productId])
+}
+
+// ───────────────────────── Тапсырыстар ─────────────────────────
+
+model Order {
+  id            String              @id @default(cuid())
+  number        String              @unique
+  customerId    String
+  customer      Customer            @relation(fields: [customerId], references: [id])
+  status        OrderStatus         @default(NEW)
+  stockState    StockState          @default(NONE)
+  source        OrderSource         @default(WHATSAPP_BOT)
+  supplyId      String?
+  supply        Supply?             @relation(fields: [supplyId], references: [id])
+  preOrderId    String?             @unique
+  preOrder      PreOrder?           @relation(fields: [preOrderId], references: [id])
+  /// Монобукет сұранысынан жасалса
+  monobouquetId String?             @unique
+  monobouquet   MonobouquetRequest? @relation(fields: [monobouquetId], references: [id])
+  totalAmount   Int                 @default(0)
+  neededBy      DateTime?           @db.Date
+  comment       String?
+  confirmedAt   DateTime?
+  /// ТЕК админ қояды. Бот төлемді ешқашан растамайды.
+  paidAt        DateTime?
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+  cancelReason  String?
+  handledById   String?
+  handledBy     Admin?              @relation("OrderHandler", fields: [handledById], references: [id])
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+  stockMovements StockMovement[]
+
+  @@index([status, createdAt])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /// Монобукет сияқты еркін позицияда бос болуы мүмкін — онда қалдыққа әсер етпейді
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id])
+  saleUnit     SaleUnit @default(PACKAGE)
+  quantity     Int
+  unitPrice    Int
+  lineTotal    Int
+  productLabel String
+}
+
+model OrderStatusHistory {
+  id          String       @id @default(cuid())
+  orderId     String
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  changedById String?
+  changedBy   Admin?       @relation(fields: [changedById], references: [id])
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model PreOrder {
+  id          String         @id @default(cuid())
+  number      String         @unique
+  customerId  String
+  customer    Customer       @relation(fields: [customerId], references: [id])
+  supplyId    String
+  supply      Supply         @relation(fields: [supplyId], references: [id])
+  status      PreOrderStatus @default(NEW)
+  neededBy    DateTime?      @db.Date
+  contactName String
+  companyName String?
+  comment     String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  items PreOrderItem[]
+  order Order?
+
+  @@index([supplyId, status])
+  @@index([customerId])
+}
+
+model PreOrderItem {
+  id         String   @id @default(cuid())
+  preOrderId String
+  preOrder   PreOrder @relation(fields: [preOrderId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  saleUnit   SaleUnit @default(PACKAGE)
+  quantity   Int
+}
+
+/// Монобукет — 1-нұсқада жеке сұраныс: менеджер қарайды, баға қояды.
+/// Қалдыққа автоматты әсер етпейді.
+model MonobouquetRequest {
+  id          String            @id @default(cuid())
+  number      String            @unique
+  customerId  String
+  customer    Customer          @relation(fields: [customerId], references: [id])
+  categoryId  String?
+  category    Category?         @relation(fields: [categoryId], references: [id])
+  flowerNote  String?
+  stemCount   Int?
+  size        String?
+  wrapping    String?
+  neededBy    DateTime?         @db.Date
+  comment     String?
+  status      MonobouquetStatus @default(NEW)
+  /// Админ енгізеді; тек осыдан кейін клиентке көрсетіледі
+  quotedPrice Int?
+  quotedById  String?
+  quotedBy    Admin?            @relation(fields: [quotedById], references: [id])
+  quotedAt    DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  order Order?
+
+  @@index([status, createdAt])
+}
+
+// ───────────────────────── Чат ─────────────────────────
+
+model Conversation {
+  customerId   String           @id
+  customer     Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  state        String           @default("MAIN_MENU")
+  context      Json             @default("{}")
+  mode         ConversationMode @default(BOT)
+  handoffAt    DateTime?
+  assignedToId String?
+  lastRequest  String?
+  updatedAt    DateTime         @updatedAt
+}
+
+model Message {
+  id          String       @id @default(cuid())
+  customerId  String
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  direction   MsgDirection
+  /// Meta wamid — бір хабарлама екі рет өңделмейді
+  waMessageId String?      @unique
+  type        String
+  body        String?
+  payload     Json?
+  status      String?
+  error       String?
+  sentById    String?
+  sentBy      Admin?       @relation(fields: [sentById], references: [id])
+  createdAt   DateTime     @default(now())
+
+  @@index([customerId, createdAt])
+}
+
+// ───────────────────────── Рассылкалар ─────────────────────────
+
+model Broadcast {
+  id               String          @id @default(cuid())
+  title            String
+  templateName     String
+  templateLanguage String          @default("ru")
+  templateParams   Json            @default("[]")
+  audience         Json            @default("{}")
+  status           BroadcastStatus @default(DRAFT)
+  supplyId         String?
+  supply           Supply?         @relation(fields: [supplyId], references: [id])
+  createdById      String
+  createdBy        Admin           @relation("BroadcastCreator", fields: [createdById], references: [id])
+  approvedById     String?
+  approvedBy       Admin?          @relation("BroadcastApprover", fields: [approvedById], references: [id])
+  approvedAt       DateTime?
+  sentAt           DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  recipients BroadcastRecipient[]
+}
+
+model BroadcastRecipient {
+  id          String          @id @default(cuid())
+  broadcastId String
+  broadcast   Broadcast       @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer        @relation(fields: [customerId], references: [id])
+  status      RecipientStatus @default(PENDING)
+  waMessageId String?
+  error       String?
+  sentAt      DateTime?
+
+  @@unique([broadcastId, customerId])
+  @@index([broadcastId, status])
+}
+
+// ───────────────────────── Жүйелік ─────────────────────────
+
+model Notification {
+  id         String    @id @default(cuid())
+  type       String
+  title      String
+  body       String
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([readAt, createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String?
+  admin     Admin?   @relation(fields: [adminId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  diff      Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
