@@ -50,3 +50,15 @@ export async function makeOrder(productId: string, quantity: number, totalAmount
 export function stockOf(productId: string) {
   return prisma.stock.findUniqueOrThrow({ where: { productId } });
 }
+
+export async function makeAdmin() {
+  seq++;
+  return prisma.admin.create({
+    data: { email: `admin${seq}@test.local`, name: 'Test', passwordHash: 'x', role: 'OWNER', mustChangePassword: false },
+  });
+}
+
+export async function makeCategory() {
+  seq++;
+  return prisma.category.create({ data: { name: `Роза ${seq}`, slug: `rose-${seq}` } });
+}

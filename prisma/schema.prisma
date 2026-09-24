@@ -47,18 +47,24 @@ enum SaleUnit {
   UNIT
 }
 
+/// INACTIVE тауар WhatsApp каталогында көрсетілмейді.
 enum ProductStatus {
   ACTIVE
-  HIDDEN
-  ARCHIVED
+  INACTIVE
 }
 
+enum PriceType {
+  PRICE_PER_UNIT
+  PRICE_PER_PACKAGE
+}
+
+/// Поставканың өмірлік циклі. Предзаказ ашық па — бөлек өріс: Supply.preorderOpen.
 enum SupplyStatus {
   PLANNED
   PREORDER_OPEN
-  PREORDER_CLOSED
+  IN_TRANSIT
   ARRIVED
-  CLOSED
+  COMPLETED
   CANCELLED
 }
 
@@ -97,11 +103,10 @@ enum PreOrderStatus {
 }
 
 enum MonobouquetStatus {
-  NEW // менеджер қарауы керек
-  QUOTED // админ баға қойды, клиентке жіберілді
-  ACCEPTED // клиент келісті
-  REJECTED // клиент бас тартты
-  CONVERTED // Order-ге айналды
+  NEW // жаңа сұраныс
+  CONTACTED // менеджер клиентпен байланысты
+  CONFIRMED // баға мен детальдар келісілді
+  COMPLETED // дайын, берілді
   CANCELLED
 }
 
@@ -114,6 +119,16 @@ enum StockMoveType {
   ADJUSTMENT_IN // админ түзетуі (+): physical+, available+
   ADJUSTMENT_OUT // админ түзетуі (−): physical-, available-
   WRITE_OFF // бүлінген гүл: physical-, available-
+}
+
+/// Админ қалдықты қолмен өзгерткенде таңдайтын себеп.
+enum StockReason {
+  RECEIPT // Поступление
+  DAMAGE // Повреждение
+  WRITE_OFF // Списание
+  RETURN // Возврат
+  CORRECTION_PLUS // Коррекция +
+  CORRECTION_MINUS // Коррекция −
 }
 
 enum MsgDirection {
@@ -294,6 +309,8 @@ model StockMovement {
   productId      String
   product        Product       @relation(fields: [productId], references: [id])
   type           StockMoveType
+  /// Админ таңдаған себеп (қолмен өзгерістерде); жүйелік қозғалыстарда бос
+  reason         StockReason?
   /// Әрқашан оң сан; бағыты type арқылы анықталады
   quantity       Int
   /// Өзгерістен кейінгі күй (журнал үшін)
@@ -313,14 +330,14 @@ model StockMovement {
   @@index([orderId])
 }
 
+/// Әр баға өзгерісі — бөлек жол (бір түр, ескі → жаңа).
 model PriceHistory {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   productId          String
-  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  oldPricePerUnit    Int?
-  newPricePerUnit    Int?
-  oldPricePerPackage Int?
-  newPricePerPackage Int?
+  product            Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  priceType          PriceType
+  oldPrice           Int?
+  newPrice           Int?
   changedById        String?
   changedBy          Admin?   @relation(fields: [changedById], references: [id])
   createdAt          DateTime @default(now())
@@ -337,6 +354,8 @@ model Supply {
   preorderDeadline DateTime?
   arrivedAt        DateTime?
   status           SupplyStatus @default(PLANNED)
+  /// Бот осы поставкаға предзаказ қабылдай ма
+  preorderOpen     Boolean      @default(false)
   notes            String?
   reminderSentAt   DateTime?
   createdAt        DateTime     @default(now())
@@ -357,8 +376,11 @@ model SupplyItem {
   supply        Supply  @relation(fields: [supplyId], references: [id], onDelete: Cascade)
   productId     String
   product       Product @relation(fields: [productId], references: [id])
+  /// Заказано (поставщиктен)
   expectedQty   Int?
+  /// Нақты келген — "Поставка пришла" кезінде админ енгізеді. Тек осы сан қалдыққа қосылады.
   receivedQty   Int?
+  /// Предзаказ лимиті (бос = шектеусіз)
   preorderLimit Int?
 
   @@unique([supplyId, productId])
@@ -473,6 +495,7 @@ model MonobouquetRequest {
   categoryId  String?
   category    Category?         @relation(fields: [categoryId], references: [id])
   flowerNote  String?
+  /// Клиент айтқан саны (дана)
   stemCount   Int?
   size        String?
   wrapping    String?

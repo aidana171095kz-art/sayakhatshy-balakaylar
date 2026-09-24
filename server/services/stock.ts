@@ -1,4 +1,4 @@
-import { Prisma, type OrderStatus, type StockMoveType } from '@prisma/client';
+import { Prisma, type OrderStatus, type StockMoveType, type StockReason } from '@prisma/client';
 import { prisma, type Tx } from '../db';
 import { planTransition } from './order-status';
 
@@ -51,6 +51,7 @@ function change(sign: number, q: number) {
 export interface MovementInput {
   productId: string;
   type: StockMoveType;
+  reason?: StockReason;
   quantity: number;
   orderId?: string;
   supplyId?: string;
@@ -92,6 +93,7 @@ export async function applyMovement(tx: Tx, input: MovementInput) {
     data: {
       productId,
       type,
+      reason: input.reason,
       quantity,
       physicalAfter: after.physicalQuantity,
       reservedAfter: after.reservedQuantity,
@@ -104,9 +106,69 @@ export async function applyMovement(tx: Tx, input: MovementInput) {
   });
 }
 
-/** Админнің қолмен түзетуі / бүлінген гүлді есептен шығару / поставка кірісі. */
+/** Жүйелік қозғалыс (тесттер мен сервистер үшін). Админ экраны adjustStock() қолданады. */
 export async function recordMovement(input: MovementInput) {
   return prisma.$transaction((tx) => applyMovement(tx, input));
+}
+
+// ───────── Админнің қолмен өзгерісі ─────────
+
+/** Админ таңдайтын себеп → қалдық қозғалысының түрі (бағыты). */
+export const REASON_EFFECT: Record<StockReason, StockMoveType> = {
+  RECEIPT: 'SUPPLY_IN', // Поступление: +
+  DAMAGE: 'WRITE_OFF', // Повреждение: −
+  WRITE_OFF: 'WRITE_OFF', // Списание: −
+  RETURN: 'RETURN_IN', // Возврат: +
+  CORRECTION_PLUS: 'ADJUSTMENT_IN', // Коррекция +
+  CORRECTION_MINUS: 'ADJUSTMENT_OUT', // Коррекция −
+};
+
+export function reasonDirection(reason: StockReason): 1 | -1 {
+  return EFFECT[REASON_EFFECT[reason]].physical > 0 ? 1 : -1;
+}
+
+export async function adjustStock(input: {
+  productId: string;
+  reason: StockReason;
+  quantity: number;
+  adminId: string;
+  note?: string | null;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const movement = await applyMovement(tx, {
+      productId: input.productId,
+      type: REASON_EFFECT[input.reason],
+      reason: input.reason,
+      quantity: input.quantity,
+      adminId: input.adminId,
+      note: input.note ?? undefined,
+    });
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: 'STOCK_ADJUSTED',
+        entity: 'Product',
+        entityId: input.productId,
+        diff: { reason: input.reason, quantity: input.quantity, note: input.note ?? null },
+      },
+    });
+    return movement;
+  });
+}
+
+// ───────── LOW STOCK / OUT OF STOCK ─────────
+
+export type StockLevel = 'OK' | 'LOW' | 'OUT';
+
+/** available = 0 → OUT; available <= порог → LOW. Бағалау тек сатуға бос қалдық бойынша. */
+export function stockLevel(available: number, threshold: number): StockLevel {
+  if (available <= 0) return 'OUT';
+  if (available <= threshold) return 'LOW';
+  return 'OK';
+}
+
+export function effectiveThreshold(own: number | null | undefined, global: number): number {
+  return own ?? global;
 }
 
 export interface ChangeStatusOptions {
@@ -122,7 +184,12 @@ export interface ChangeStatusOptions {
  * Бір тапсырыс қалдықты екі рет өзгерте алмайды: статус+stockState "compare-and-set" арқылы тексеріледі.
  */
 export async function changeOrderStatus(orderId: string, to: OrderStatus, opts: ChangeStatusOptions = {}) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction((tx) => changeOrderStatusInTx(tx, orderId, to, opts));
+}
+
+/** Сыртқы транзакция ішінде (мыс. предзаказды тапсырысқа айналдырғанда). */
+export async function changeOrderStatusInTx(tx: Tx, orderId: string, to: OrderStatus, opts: ChangeStatusOptions = {}) {
+  {
     const order = await tx.order.findUniqueOrThrow({
       where: { id: orderId },
       include: { items: true },
@@ -186,5 +253,5 @@ export async function changeOrderStatus(orderId: string, to: OrderStatus, opts: 
     });
 
     return tx.order.findUniqueOrThrow({ where: { id: order.id } });
-  });
+  }
 }

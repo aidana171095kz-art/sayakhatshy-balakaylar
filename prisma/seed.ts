@@ -1,8 +1,11 @@
 // Бастапқы деректер. Қайта-қайта іске қосуға қауіпсіз:
-// бар жазбаларды ӨЗГЕРТПЕЙДІ, тек жоғын қосады. Тауар мен баға ҚОСПАЙДЫ — оларды админ енгізеді.
+// бар жазбаларды ӨЗГЕРТПЕЙДІ, тек жоғын қосады.
+// Тек: категориялар, міндетті баптаулар, бірінші админ.
+// Тауар, баға, клиент, тапсырыс ЕШҚАШАН қосылмайды — оларды админ енгізеді.
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword, passwordSchema } from '../server/auth/password';
+import { SETTINGS } from '../server/services/settings';
 
 const prisma = new PrismaClient();
 
@@ -15,26 +18,21 @@ const CATEGORIES = [
   { slug: 'other', name: 'Другие цветы', nameKk: 'Басқа гүлдер', emoji: '💐', sortOrder: 90, allowMonobouquet: false },
 ];
 
-// Admin → Настройки бетінде өзгертіледі.
-const SETTINGS: Record<string, unknown> = {
-  business: {
-    name: 'TALSHYN FLOWERS',
-    address: 'Астана, ул. Күйші Дина, 12',
-    mapUrl: null,
-    workingHours: null,
-  },
-  low_stock_threshold: 3,
-  monobouquet: { sizes: [], wrappings: [] },
-};
-
 async function main() {
   for (const c of CATEGORIES) {
     await prisma.category.upsert({ where: { slug: c.slug }, create: c, update: {} });
   }
 
-  for (const [key, value] of Object.entries(SETTINGS)) {
-    await prisma.setting.upsert({ where: { key }, create: { key, value: value as object }, update: {} });
+  // Міндетті баптаулар (Admin → Настройки бетінде өзгертіледі). Бар болса — тимейміз.
+  const legacyThreshold = await prisma.setting.findUnique({ where: { key: 'low_stock_threshold' } });
+  for (const [key, def] of Object.entries(SETTINGS)) {
+    let value: object = def.defaults;
+    if (key === 'general' && typeof legacyThreshold?.value === 'number') {
+      value = { ...def.defaults, lowStockThreshold: legacyThreshold.value };
+    }
+    await prisma.setting.upsert({ where: { key }, create: { key, value }, update: {} });
   }
+  if (legacyThreshold) await prisma.setting.delete({ where: { key: 'low_stock_threshold' } });
 
   const adminCount = await prisma.admin.count();
   if (adminCount === 0) {

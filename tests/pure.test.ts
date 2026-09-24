@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { formatTenge, isSellable, salePrice, unitLabel } from '@/lib/pricing';
 import { maskPhone, redact } from '@/server/logger';
 import { planTransition } from '@/server/services/order-status';
+import { periodStart } from '@/server/services/dashboard';
+import { validatePhoto, detectImageType } from '@/server/services/uploads';
+import { normalizePhone } from '@/lib/phone';
+import { allowedActions } from '@/server/services/supplies';
+import { stockLevel } from '@/server/services/stock';
 
 describe('pricing', () => {
   const base = { pricePerUnit: 1300, pricePerPackage: 25000, packageQuantity: 20 };
@@ -71,5 +76,62 @@ describe('logger redaction', () => {
   it('телефонды жасырады', () => {
     expect(maskPhone('77011234567')).toBe('7701***4567');
     expect(maskPhone('+7 701 123 45 67')).toBe('7701***4567');
+  });
+});
+
+describe('dashboard periods (Астана, UTC+5)', () => {
+  // 2026-09-24 (бейсенбі) 21:30 UTC = 25 қыркүйек, жұма 02:30 Астана уақытымен
+  const now = new Date('2026-09-24T21:30:00Z');
+  it('бүгін — Астана уақытымен түн ортасынан', () => {
+    expect(periodStart('today', now).toISOString()).toBe('2026-09-24T19:00:00.000Z');
+  });
+  it('апта — дүйсенбіден', () => {
+    expect(periodStart('week', now).toISOString()).toBe('2026-09-20T19:00:00.000Z'); // 21 қыркүйек, дүйсенбі 00:00
+  });
+  it('ай — 1-інен', () => {
+    expect(periodStart('month', now).toISOString()).toBe('2026-08-31T19:00:00.000Z');
+  });
+});
+
+describe('stock level', () => {
+  it('OUT / LOW / OK', () => {
+    expect(stockLevel(0, 3)).toBe('OUT');
+    expect(stockLevel(3, 3)).toBe('LOW');
+    expect(stockLevel(4, 3)).toBe('OK');
+    expect(stockLevel(0, 0)).toBe('OUT');
+  });
+});
+
+describe('photo upload validation', () => {
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]);
+  it('JPEG/PNG байттар бойынша танылады', () => {
+    expect(detectImageType(jpeg)).toBe('image/jpeg');
+    expect(detectImageType(png)).toBe('image/png');
+  });
+  it('басқа формат және 5 МБ-тан үлкен файл қабылданбайды', () => {
+    expect(() => validatePhoto(new TextEncoder().encode('<svg onload=alert(1)>'))).toThrow(/JPG или PNG/);
+    const big = new Uint8Array(5 * 1024 * 1024 + 1);
+    big.set(jpeg);
+    expect(() => validatePhoto(big)).toThrow(/5 МБ/);
+  });
+});
+
+describe('phone', () => {
+  it('қазақстан нөмірлері бір форматқа келеді', () => {
+    expect(normalizePhone('+7 (701) 123-45-67')).toBe('77011234567');
+    expect(normalizePhone('87011234567')).toBe('77011234567');
+    expect(normalizePhone('7011234567')).toBe('77011234567');
+    expect(normalizePhone('123')).toBeNull();
+  });
+});
+
+describe('supply actions', () => {
+  it('статусқа қарай батырмалар', () => {
+    expect(allowedActions('PLANNED', false)).toEqual(['OPEN_PREORDER', 'IN_TRANSIT', 'ARRIVE', 'CANCEL']);
+    expect(allowedActions('IN_TRANSIT', true)).toEqual(['CLOSE_PREORDER', 'ARRIVE', 'CANCEL']);
+    expect(allowedActions('ARRIVED', false)).toEqual(['COMPLETE']);
+    expect(allowedActions('COMPLETED', false)).toEqual([]);
+    expect(allowedActions('CANCELLED', false)).toEqual([]);
   });
 });
