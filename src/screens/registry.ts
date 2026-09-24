@@ -1,7 +1,10 @@
 import type { ComponentType } from 'react';
 import { lesson } from '../content/lesson';
+import { Astana } from './Astana';
 import { Bag } from './Bag';
 import { MapScreen } from './MapScreen';
+import { Recognize } from './Recognize';
+import { Scrambled } from './Scrambled';
 import { Welcome } from './Welcome';
 
 export type Section = 'start' | 'astana' | 'burabay' | 'almaty' | 'final';
@@ -22,9 +25,9 @@ export const SCREENS: ScreenDef[] = [
   { n: 1, title: 'Welcome', section: 'start', component: Welcome, teacherNotes: [lesson.intro.stage, lesson.intro.teacher, lesson.intro.students] },
   { n: 2, title: lesson.bag.title, section: 'start', component: Bag, teacherNotes: [lesson.bag.game, lesson.bag.descriptor], example: lesson.bag.example },
   { n: 3, title: 'Қазақстан картасы', section: 'start', component: MapScreen, teacherNotes: [lesson.intro.teacherRoute] },
-  { n: 4, title: 'Астана', section: 'astana', teacherNotes: [lesson.astana.stage, lesson.astana.teacher] },
-  { n: 5, title: lesson.recognize.title, section: 'astana', teacherNotes: [lesson.recognize.descriptor], example: lesson.recognize.example },
-  { n: 6, title: lesson.scrambled.title, section: 'astana', example: lesson.scrambled.answers.join(' ') },
+  { n: 4, title: 'Астана', section: 'astana', component: Astana, teacherNotes: [lesson.astana.stage, lesson.astana.teacher] },
+  { n: 5, title: lesson.recognize.title, section: 'astana', component: Recognize, teacherNotes: [lesson.recognize.heading, lesson.recognize.pictures, lesson.recognize.descriptor], example: lesson.recognize.example },
+  { n: 6, title: lesson.scrambled.title, section: 'astana', component: Scrambled, teacherNotes: [lesson.scrambled.heading], example: lesson.scrambled.answers.join(' ') },
   { n: 7, title: 'Бурабай', section: 'burabay', teacherNotes: [lesson.burabay.stage, lesson.burabay.teacher] },
   { n: 8, title: lesson.seeing.title, section: 'burabay', teacherNotes: [lesson.seeing.descriptor], example: lesson.seeing.example },
   { n: 9, title: lesson.oddWord.title, section: 'burabay', teacherNotes: [lesson.oddWord.descriptor] },

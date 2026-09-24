@@ -30,6 +30,9 @@ export const ASSETS = {
   // ── Кейіпкерлер (мектеп формасы) ─────────────────────────────
   'boy.pointing': A({ id: 'boy.pointing', kind: 'character', label: 'Бала', source: 'Drive 22A5220A (=W08/W33)', status: 'final', characterStyle: 'uniform' }),
   'boy.map': A({ id: 'boy.map', kind: 'character', label: 'Бала', source: 'Drive 5589E269', status: 'final', characterStyle: 'uniform' }),
+  'boy.thinking': A({ id: 'boy.thinking', kind: 'character', label: 'Бала', source: 'Drive 27A65AFF (=W23)', status: 'final', characterStyle: 'uniform' }),
+  'girl.pointing': A({ id: 'girl.pointing', kind: 'character', label: 'Қыз', source: 'W07 (=W34), фоны қиылды', status: 'final', characterStyle: 'uniform' }),
+  'girl.thinking': A({ id: 'girl.thinking', kind: 'character', label: 'Қыз', source: 'W12, фоны қиылды', status: 'final', characterStyle: 'uniform' }),
   'girl.openBag': A({ id: 'girl.openBag', kind: 'character', label: 'Қыз', source: 'Drive ECC87B5E (=W16), фоны қиылды', status: 'final', characterStyle: 'uniform' }),
   'girl.walking': A({ id: 'girl.walking', kind: 'character', label: 'Қыз', source: 'Drive 4F18C84E (=W14/W22/W37)', status: 'final', characterStyle: 'uniform' }),
 
@@ -73,5 +76,8 @@ export function assetUrl(id: AssetId): string | undefined {
 export const SCREEN_ASSETS: Record<number, AssetId[]> = {
   1: ['bg.astana', 'boy.pointing', 'girl.walking'],
   3: ['map.kazakhstan', 'boy.map', 'ui.star'],
+  4: ['bg.astana', 'girl.pointing', 'landmark.akorda', 'landmark.baiterek', 'landmark.khanShatyr'],
+  5: ['bg.astana', 'boy.thinking', 'landmark.baiterek', 'landmark.akorda', 'landmark.khanShatyr', 'ui.star'],
+  6: ['bg.astana', 'girl.thinking', 'ui.star'],
   2: ['girl.openBag', 'prop.backpack', 'item.map', 'item.book', 'item.ticket', 'item.ball', 'item.pencil', 'item.passport', 'item.icecream', 'item.water', 'ui.star'],
 };
