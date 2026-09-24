@@ -109,11 +109,11 @@ describe('photo upload validation', () => {
     expect(detectImageType(jpeg)).toBe('image/jpeg');
     expect(detectImageType(png)).toBe('image/png');
   });
-  it('басқа формат және 5 МБ-тан үлкен файл қабылданбайды', () => {
+  it('басқа формат және 4 МБ-тан үлкен файл қабылданбайды', () => {
     expect(() => validatePhoto(new TextEncoder().encode('<svg onload=alert(1)>'))).toThrow(/JPG или PNG/);
-    const big = new Uint8Array(5 * 1024 * 1024 + 1);
+    const big = new Uint8Array(4 * 1024 * 1024 + 1);
     big.set(jpeg);
-    expect(() => validatePhoto(big)).toThrow(/5 МБ/);
+    expect(() => validatePhoto(big)).toThrow(/4 МБ/);
   });
 });
 

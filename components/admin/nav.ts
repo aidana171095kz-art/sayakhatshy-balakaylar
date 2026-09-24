@@ -9,13 +9,12 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: '📊' },
-  { href: '/admin/products', label: 'Товары', icon: '📦', stage: 2 },
+  { href: '/admin/products', label: 'Товары', icon: '🌷', stage: 2 },
   { href: '/admin/stock', label: 'Остатки', icon: '📊', stage: 2 },
-  { href: '/admin/prices', label: 'Цены', icon: '💰', stage: 2 },
-  { href: '/admin/supplies', label: 'Поставки', icon: '🚚', stage: 2 },
+  { href: '/admin/prices', label: 'Цены', icon: '💰', stage: 2, ownerOnly: true },
+  { href: '/admin/supplies', label: 'Поставки', icon: '📦', stage: 2 },
   { href: '/admin/orders', label: 'Заказы', icon: '📋', stage: 5 },
-  { href: '/admin/preorders', label: 'Предзаказы', icon: '🗓️', stage: 4 },
-  { href: '/admin/monobouquets', label: 'Монобукеты', icon: '💐', stage: 4 },
+  { href: '/admin/monobouquets', label: 'Монобукеты', icon: '💐', stage: 2 },
   { href: '/admin/customers', label: 'Клиенты', icon: '👥', stage: 5 },
   { href: '/admin/inbox', label: 'Чаты', icon: '💬', stage: 5 },
   { href: '/admin/broadcasts', label: 'Рассылки', icon: '📢', stage: 6, ownerOnly: true },
@@ -24,4 +23,4 @@ export const NAV: NavItem[] = [
 ];
 
 // Қай кезеңге дейін жасалды — жаңа кезең біткенде осы санды арттырамыз.
-export const CURRENT_STAGE = 1;
+export const CURRENT_STAGE = 2;

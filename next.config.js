@@ -43,6 +43,10 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   images: { unoptimized: true },
+  // Тауар фотосы server action арқылы жүктеледі (браузер оны алдын ала кішірейтеді).
+  experimental: {
+    serverActions: { bodySizeLimit: '4.5mb' },
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

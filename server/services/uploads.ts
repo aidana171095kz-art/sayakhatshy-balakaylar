@@ -4,8 +4,11 @@ import { randomUUID } from 'node:crypto';
 // Тауар фотосы Vercel Blob-та сақталады (public URL — кейін WhatsApp сол сілтеме арқылы алады).
 // Кілт тек BLOB_READ_WRITE_TOKEN айнымалысынан оқылады. Жоқ болса — жүктеу өшірулі, ойдан кілт жасалмайды.
 
-/** WhatsApp Cloud API фото ретінде тек JPEG және PNG қабылдайды, ең көбі 5 МБ. */
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+/**
+ * WhatsApp Cloud API фото ретінде тек JPEG және PNG қабылдайды (≤ 5 МБ).
+ * Vercel сұраныс денесін 4.5 МБ-пен шектейді, сондықтан 4 МБ. Браузер фотоны алдын ала кішірейтеді.
+ */
+export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 export class UploadError extends Error {
   constructor(message: string) {
@@ -28,7 +31,7 @@ export function detectImageType(bytes: Uint8Array): 'image/jpeg' | 'image/png' |
 
 export function validatePhoto(bytes: Uint8Array): 'image/jpeg' | 'image/png' {
   if (bytes.length === 0) throw new UploadError('Файл пустой');
-  if (bytes.length > MAX_PHOTO_BYTES) throw new UploadError('Фото больше 5 МБ — WhatsApp такое не примет');
+  if (bytes.length > MAX_PHOTO_BYTES) throw new UploadError('Фото больше 4 МБ — уменьшите его');
   const type = detectImageType(bytes);
   if (!type) throw new UploadError('Нужен файл JPG или PNG (WhatsApp не принимает другие форматы)');
   return type;
