@@ -7,3 +7,4 @@ coverage
 .env*
 # raw source images (processed copies live in src/assets)
 asset-src/
+dist-single
