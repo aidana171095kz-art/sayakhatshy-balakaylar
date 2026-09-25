@@ -28,6 +28,7 @@ export default async function MonobouquetPage({ params }: { params: Promise<{ id
     ['Размер', r.size ?? '—'],
     ['Упаковка', r.wrapping ?? '—'],
     ['К дате', formatDay(r.neededBy)],
+    ['Комментарий клиента', r.comment ? <span key="c" className="whitespace-pre-line">{r.comment}</span> : '—'],
     ['Создан', formatDateTime(r.createdAt)],
     ['Цену указал', r.quotedBy ? `${r.quotedBy.email}, ${formatDateTime(r.quotedAt)}` : '—'],
   ];
@@ -51,7 +52,7 @@ export default async function MonobouquetPage({ params }: { params: Promise<{ id
           </dl>
         </Card>
         <Card title="Обработка">
-          <MonobouquetUpdateForm id={r.id} status={r.status} quotedPrice={r.quotedPrice} comment={r.comment} nextStatuses={MONO_TRANSITIONS[r.status]} />
+          <MonobouquetUpdateForm id={r.id} status={r.status} quotedPrice={r.quotedPrice} managerNote={r.managerNote} nextStatuses={MONO_TRANSITIONS[r.status]} />
         </Card>
       </div>
     </div>

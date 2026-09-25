@@ -3,6 +3,7 @@ import { requireAdmin } from '@/server/auth/session';
 import { NAV } from '@/components/admin/nav';
 import { SideNav } from '@/components/admin/side-nav';
 import { logoutAction } from './actions';
+import { SubmitButton } from '@/components/admin/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,9 +26,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             🔑 Сменить пароль
           </Link>
           <form action={logoutAction}>
-            <button type="submit" className="text-muted-foreground hover:text-foreground">
+            <SubmitButton pendingText="↩ Выход…" className="text-muted-foreground hover:text-foreground">
               ↩ Выйти
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </aside>

@@ -64,7 +64,8 @@ export async function createMonobouquetRequest(raw: unknown, opts: { adminId?: s
 export const monobouquetUpdateSchema = z.object({
   status: z.enum(['NEW', 'CONTACTED', 'CONFIRMED', 'COMPLETED', 'CANCELLED']),
   quotedPrice: optionalInt(0, 100_000_000, 'Цена — целое число ₸'),
-  comment: optionalText(1000),
+  /** Менеджердің ішкі жазбасы. Клиенттің `comment` өрісі бұл жерде ЖОҚ — оны өзгертуге болмайды. */
+  managerNote: optionalText(1000),
 });
 
 export async function updateMonobouquet(id: string, raw: unknown, adminId: string) {
@@ -86,7 +87,7 @@ export async function updateMonobouquet(id: string, raw: unknown, adminId: strin
       where: { id },
       data: {
         status: input.status,
-        comment: input.comment,
+        managerNote: input.managerNote,
         quotedPrice: input.quotedPrice,
         ...(priceChanged && { quotedById: adminId, quotedAt: new Date() }),
       },

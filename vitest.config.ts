@@ -7,7 +7,7 @@ const testDb = process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@
 export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname) } },
   test: {
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     globalSetup: ['tests/global-setup.ts'],
     env: {
       DATABASE_URL: testDb,

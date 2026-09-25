@@ -6,6 +6,7 @@ import { listCategories } from '@/server/services/categories';
 import { getSettings } from '@/server/services/settings';
 import { isBlobConfigured } from '@/server/services/uploads';
 import { toggleCategoryAction } from './actions';
+import { SubmitButton } from '@/components/admin/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,7 +118,7 @@ export default async function SettingsPage() {
               <form action={toggleCategoryAction} className="pb-1">
                 <input type="hidden" name="id" value={c.id} />
                 <input type="hidden" name="isActive" value={String(!c.isActive)} />
-                <button className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted">{c.isActive ? 'Скрыть' : 'Показать'}</button>
+                <SubmitButton pendingText="…" className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted">{c.isActive ? 'Скрыть' : 'Показать'}</SubmitButton>
               </form>
               {!c.isActive && <Badge>скрыта</Badge>}
             </li>

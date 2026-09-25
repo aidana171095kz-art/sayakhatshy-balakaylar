@@ -1,10 +1,9 @@
 'use client';
 
-import { useActionState } from 'react';
 import type { MonobouquetStatus } from '@prisma/client';
 import { createMonobouquetAction, updateMonobouquetAction } from '@/app/admin/monobouquets/actions';
 import { Alert, Button, Field, inputClass } from '@/components/ui';
-import type { ActionState } from '@/lib/action-state';
+import { useFormAction } from '@/lib/use-form-action';
 import { MONO_STATUS } from '@/lib/labels';
 
 export function MonobouquetCreateForm({
@@ -16,10 +15,10 @@ export function MonobouquetCreateForm({
   sizes: string[];
   wrappings: string[];
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(createMonobouquetAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(createMonobouquetAction);
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="grid gap-3 sm:grid-cols-2">
+    <form ref={formRef} onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
       <Field label="Телефон WhatsApp *" error={e.phone}>
         <input name="phone" required inputMode="tel" placeholder="+7 701 123 45 67" className={inputClass} />
       </Field>
@@ -72,7 +71,7 @@ export function MonobouquetCreateForm({
       <Field label="Магазин / компания" error={e.companyName}>
         <input name="companyName" maxLength={100} className={inputClass} />
       </Field>
-      <Field label="Комментарий" error={e.comment}>
+      <Field label="Комментарий клиента" error={e.comment}>
         <input name="comment" maxLength={1000} className={inputClass} />
       </Field>
       <div className="space-y-2 sm:col-span-2">
@@ -89,20 +88,20 @@ export function MonobouquetUpdateForm({
   id,
   status,
   quotedPrice,
-  comment,
+  managerNote,
   nextStatuses,
 }: {
   id: string;
   status: MonobouquetStatus;
   quotedPrice: number | null;
-  comment: string | null;
+  managerNote: string | null;
   nextStatuses: MonobouquetStatus[];
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(updateMonobouquetAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(updateMonobouquetAction);
   const e = state.fieldErrors ?? {};
   const closed = nextStatuses.length === 0;
   return (
-    <form action={action} className="space-y-3">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-3">
       <input type="hidden" name="id" value={id} />
       {state.error && <Alert tone="error">{state.error}</Alert>}
       {state.ok && !pending && <Alert tone="success">✅ {state.ok}</Alert>}
@@ -120,8 +119,8 @@ export function MonobouquetUpdateForm({
         <input name="quotedPrice" type="number" min={0} inputMode="numeric" defaultValue={quotedPrice ?? ''} disabled={closed} className={inputClass} />
       </Field>
       {closed && <input type="hidden" name="quotedPrice" value={quotedPrice ?? ''} />}
-      <Field label="Комментарий менеджера" error={e.comment}>
-        <textarea name="comment" rows={2} maxLength={1000} defaultValue={comment ?? ''} className={inputClass} />
+      <Field label="Заметка менеджера" error={e.managerNote} hint="Видна только в панели. Комментарий клиента не меняется.">
+        <textarea name="managerNote" rows={2} maxLength={1000} defaultValue={managerNote ?? ''} className={inputClass} />
       </Field>
       <Button type="submit" disabled={pending}>
         {pending ? 'Сохранение…' : 'Сохранить'}

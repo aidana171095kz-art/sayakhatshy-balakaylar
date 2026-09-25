@@ -28,25 +28,37 @@ Vercel сайтты әдетте `main` тармағынан жариялайд�
 4. Framework: **Next.js** өзі анықталады. Басқа ештеңені өзгертпеңіз.
 5. ⚠️ **Deploy-ды әзірге баспаңыз** — алдымен база мен айнымалылар керек. Басып қойсаңыз, қорықпаңыз: build қатемен тоқтайды, 5-қадамда қайта іске қосамыз.
 
-### Қадам 3. Neon базасын қосу
+### Қадам 3. Neon базасын қосу (тек Production)
+
+> ⚠️ **Маңызды ереже:** production базасы тек **Production** ортасына қосылады.
+> Preview (әр тармаққа / PR-ге жасалатын уақытша сайт) production базасын **ешқашан** қолданбауы керек —
+> әйтпесе әлі merge болмаған код нақты деректерге әсер етуі мүмкін.
+> Build скрипті де миграция мен seed-ті тек `VERCEL_ENV=production` кезінде іске қосады.
 
 1. Vercel → сіздің жоба → **Storage** қойындысы → **Create Database**.
 2. **Neon** (Serverless Postgres) таңдаңыз → **Continue**.
 3. Region: **Frankfurt (eu-central-1)** — Астанаға ең жақыны. План: **Free**.
 4. Database name: `talshyn` → **Create**.
-5. «Connect to project» терезесінде барлық ортаны (**Production, Preview, Development**) белгілеп → **Connect**.
-6. Тексеру: **Settings → Environment Variables** ішінде `DATABASE_URL` және `DATABASE_URL_UNPOOLED` пайда болуы керек.
-   Егер `DATABASE_URL_UNPOOLED` жоқ болса: Neon Console → **Connect** → «Connection pooling» ажыратулы күйдегі жолды көшіріп, `DATABASE_URL_UNPOOLED` атымен қолмен қосыңыз.
+5. «Connect to project» терезесінде **тек Production** белгіленіп тұрсын. **Preview** және **Development** белгілерін **алып тастаңыз** → **Connect**.
+6. Тексеру: **Settings → Environment Variables** ішінде `DATABASE_URL` және `DATABASE_URL_UNPOOLED` пайда болуы керек, екеуінің жанында да тек **Production** жазуы тұруы керек.
+   * Жанында Preview тұрса: айнымалыны ашып (**⋯ → Edit**) → Preview белгісін алып тастаңыз → **Save**.
+   * `DATABASE_URL_UNPOOLED` мүлде жоқ болса: Neon Console → **Connect** → «Connection pooling» ажыратулы күйдегі жолды көшіріп, `DATABASE_URL_UNPOOLED` атымен қолмен қосыңыз (Environment: тек Production).
+
+**Preview сайттары туралы:** Preview-ге база айнымалыларын **қоспаңыз** (ұсынылады). Preview сайты жинала береді, бірақ базаны қажет ететін беттер қате көрсетеді — бұл қалыпты және қауіпсіз. Жаңа функцияларды біз жергілікті тест базасында тексереміз.
+Preview-де нақты деректермен тексеру керек болса — тек **бөлек** Neon тармағы: Neon Console → **Branches → New branch** (`preview`) → оның connection string-терін Vercel-ге **тек Preview** ортасына қойыңыз. Ескерту: тармақ жасалған сәттегі production деректерінің көшірмесін қамтиды және оған жаңа миграциялар автоматты қолданылмайды.
 
 ### Қадам 4. Айнымалыларды енгізу
 
-**Settings → Environment Variables** → әрқайсысын **Add** арқылы қосыңыз (Environments: барлығы белгіленген):
+**Settings → Environment Variables** → **Add**. Әр айнымалыны кестеде көрсетілген ортаға ғана қойыңыз:
 
-| Key | Value (мәні) |
-|---|---|
-| `AUTH_SECRET` | Кездейсоқ ұзын жол (төменде қалай жасау керек) |
-| `ADMIN_EMAIL` | Сіздің email-іңіз — админ панельге кіру логині |
-| `ADMIN_INITIAL_PASSWORD` | Уақытша пароль: кемінде 10 таңба, әріп + сан. Бірінші кіргенде ауыстырасыз |
+| Key | Value (мәні) | Production | Preview | Development |
+|---|---|---|---|---|
+| `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | Neon қояды (3-қадам) | ✅ | ❌ (немесе бөлек Neon тармағы) | ❌ |
+| `AUTH_SECRET` | Кездейсоқ ұзын жол (төменде қалай жасау керек) | ✅ | ✅ **басқа** мәнмен | ❌ |
+| `ADMIN_EMAIL` | Сіздің email-іңіз — админ панельге кіру логині | ✅ | ❌ | ❌ |
+| `ADMIN_INITIAL_PASSWORD` | Уақытша пароль: кемінде 10 таңба, әріп + сан. Бірінші кіргенде ауыстырасыз | ✅ (кейін өшіріледі) | ❌ | ❌ |
+| `APP_BASE_URL` | Сайт адресі (5-қадамнан кейін) | ✅ | ❌ | ❌ |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob қояды (2-кезең) | ✅ | ❌ | ❌ |
 
 **`AUTH_SECRET` қалай жасау керек (компьютерде, 30 секунд):**
 1. Chrome-да кез келген бетте **F12** басыңыз (Mac: `Cmd+Option+J`) → **Console** қойындысы.
@@ -61,10 +73,14 @@ Vercel сайтты әдетте `main` тармағынан жариялайд�
 ### Қадам 5. Deploy
 
 1. **Deployments** қойындысы → ең соңғы deployment → **⋯ → Redeploy** (немесе жаңа жоба болса **Deploy**).
-2. 2–4 минут күтіңіз. Build log ішінде мыналар болуы керек:
-   * `All migrations have been successfully applied` (немесе `No pending migrations`)
-   * `✅ OWNER админ жасалды: сіздің@email`
-   * `✅ Seed аяқталды.`
+2. 2–4 минут күтіңіз. Production build log ішінде мына рет болуы керек:
+   * `▶ next build` → `✓ Compiled successfully`
+   * `▶ prisma migrate deploy` → `All migrations have been successfully applied` (немесе `No pending migrations`)
+   * `▶ seed` → `✅ OWNER админ жасалды: сіздің@email` (тек бірінші рет) → `✅ Seed аяқталды.`
+   * `✔ Build аяқталды.`
+
+   Preview build log-та: `ℹ VERCEL_ENV=preview — миграция мен seed ӨТКІЗІЛІП ЖІБЕРІЛДІ` — бұл дұрыс.
+   Сайт жиналмаса (`✖ next build сәтсіз`), миграция басталмайды — база өзгермейді, ескі нұсқа жұмыс істей береді.
 3. Сәтті болса: **Visit** басыңыз. Адрес мынадай болады: `https://sayakhatshy-balakaylar.vercel.app` (сіздікі басқаша болуы мүмкін).
 4. Сол адресті **Settings → Environment Variables → `APP_BASE_URL`** ретінде қосыңыз (мыс. `https://sayakhatshy-balakaylar.vercel.app`, соңында `/` жоқ).
 
@@ -81,7 +97,8 @@ Vercel сайтты әдетте `main` тармағынан жариялайд�
 | Белгі | Себебі және шешімі |
 |---|---|
 | Build: `.env қате толтырылған: AUTH_SECRET…` | `AUTH_SECRET` жоқ немесе 32 таңбадан қысқа → 4-қадам |
-| Build: `Environment variable not found: DATABASE_URL_UNPOOLED` | 3-қадамның 6-тармағы |
+| Build: `DATABASE_URL_UNPOOLED берілмеген — миграция тоқтатылды` | 3-қадамның 6-тармағы (Production ортасына) |
+| Preview сайтында база қатесі | Қалыпты: Preview-ге production базасы қосылмайды (3-қадам) |
 | Build: `ADMIN_INITIAL_PASSWORD талапқа сай емес` | Кемінде 10 таңба, әріп + сан болсын |
 | Build: `Бірде-бір админ жоқ` ескертуі | `ADMIN_EMAIL` / `ADMIN_INITIAL_PASSWORD` қосып, Redeploy |
 | `/api/health` → `"db":false` | Neon базасы жобаға қосылмаған → 3-қадам |
@@ -100,7 +117,7 @@ PR-ге жаңа commit-тер қосылды. Егер PR әлі merge болм
 
 1. Vercel → сіздің жоба → **Storage** → **Create Database** (немесе **Create Store**) → **Blob** → **Continue**.
 2. Атауы: `talshyn-photos` → **Create**.
-3. «Connect to project» терезесінде барлық ортаны белгілеп → **Connect**. `BLOB_READ_WRITE_TOKEN` өзі қосылады — оны қолмен көшірудің қажеті жоқ.
+3. «Connect to project» терезесінде **тек Production** белгілеп → **Connect**. `BLOB_READ_WRITE_TOKEN` өзі қосылады — оны қолмен көшірудің қажеті жоқ.
 4. **Deployments → ⋯ → Redeploy**.
 5. Тексеру: Admin → **Настройки** → «Подключения» бөлімінде `✅ BLOB_READ_WRITE_TOKEN`.
 

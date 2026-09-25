@@ -8,6 +8,7 @@ import { listProducts, productLabel } from '@/server/services/products';
 import { getLowStockThreshold } from '@/server/services/settings';
 import { effectiveThreshold, stockLevel } from '@/server/services/stock';
 import { setProductStatusAction } from './actions';
+import { SubmitButton } from '@/components/admin/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,9 +97,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
                   <form action={setProductStatusAction}>
                     <input type="hidden" name="id" value={p.id} />
                     <input type="hidden" name="status" value={p.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'} />
-                    <button className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" title="Показывать клиентам или нет">
+                    <SubmitButton pendingText="…" className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" title="Показывать клиентам или нет">
                       {p.status === 'ACTIVE' ? 'Скрыть' : 'Включить'}
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </li>

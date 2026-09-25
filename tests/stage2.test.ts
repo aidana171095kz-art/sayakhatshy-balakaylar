@@ -445,13 +445,13 @@ describe('Монобукет', () => {
     expect(req).toMatchObject({ status: 'NEW', stemCount: 51, quotedPrice: null });
     expect(req.number).toMatch(/^MB-\d{6}$/);
 
-    await expect(updateMonobouquet(req.id, { status: 'CONFIRMED', quotedPrice: '', comment: '' }, admin.id)).rejects.toThrow(
+    await expect(updateMonobouquet(req.id, { status: 'CONFIRMED', quotedPrice: '', managerNote: '' }, admin.id)).rejects.toThrow(
       /укажите цену/,
     );
-    await updateMonobouquet(req.id, { status: 'CONTACTED', quotedPrice: '45000', comment: '' }, admin.id);
-    const confirmed = await updateMonobouquet(req.id, { status: 'CONFIRMED', quotedPrice: '45000', comment: '' }, admin.id);
+    await updateMonobouquet(req.id, { status: 'CONTACTED', quotedPrice: '45000', managerNote: '' }, admin.id);
+    const confirmed = await updateMonobouquet(req.id, { status: 'CONFIRMED', quotedPrice: '45000', managerNote: '' }, admin.id);
     expect(confirmed).toMatchObject({ status: 'CONFIRMED', quotedPrice: 45000, quotedById: admin.id });
-    await expect(updateMonobouquet(req.id, { status: 'NEW', quotedPrice: '45000', comment: '' }, admin.id)).rejects.toThrow(
+    await expect(updateMonobouquet(req.id, { status: 'NEW', quotedPrice: '45000', managerNote: '' }, admin.id)).rejects.toThrow(
       /Нельзя/,
     );
     expect(await stockOf(p.id)).toEqual({ physical: 10, reserved: 0, available: 10 });

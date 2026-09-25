@@ -1,6 +1,5 @@
 'use client';
 
-import { useActionState } from 'react';
 import {
   addSupplyItemAction,
   convertPreOrderAction,
@@ -11,32 +10,17 @@ import {
   updateSupplyItemAction,
 } from '@/app/admin/supplies/actions';
 import { Alert, Button, Field, inputClass } from '@/components/ui';
-import type { ActionState } from '@/lib/action-state';
+import { useFormAction } from '@/lib/use-form-action';
 
 type Opt = { id: string; label: string };
-
-/** Қайтымсыз әрекет алдында сұрайтын батырма. */
-export function ConfirmButton({ message, children, className }: { message: string; children: React.ReactNode; className?: string }) {
-  return (
-    <button
-      type="submit"
-      className={className}
-      onClick={(e) => {
-        if (!window.confirm(message)) e.preventDefault();
-      }}
-    >
-      {children}
-    </button>
-  );
-}
 
 // ───────── 1-қадам: поставка деректері ─────────
 
 export function SupplyForm({ supply }: { supply?: { id: string; title: string | null; expectedDate: string; notes: string | null } }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(supply ? updateSupplyAction : createSupplyAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(supply ? updateSupplyAction : createSupplyAction);
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-4">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-4">
       {supply && <input type="hidden" name="id" value={supply.id} />}
       {state.error && <Alert tone="error">{state.error}</Alert>}
       <Field label="Название поставки *" error={e.title} hint="Например: Поставка №12 или «Октябрь, 1-я»">
@@ -58,7 +42,7 @@ export function SupplyForm({ supply }: { supply?: { id: string; title: string | 
 // ───────── 2-қадам: тауарлар ─────────
 
 export function AddSupplyItemForm({ supplyId, products }: { supplyId: string; products: Opt[] }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(addSupplyItemAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(addSupplyItemAction, { resetOnSuccess: true });
   const e = state.fieldErrors ?? {};
   if (products.length === 0) {
     return (
@@ -69,7 +53,7 @@ export function AddSupplyItemForm({ supplyId, products }: { supplyId: string; pr
     );
   }
   return (
-    <form action={action} className="grid gap-3 sm:grid-cols-[1fr_8rem_9rem_auto] sm:items-end">
+    <form ref={formRef} onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[1fr_8rem_9rem_auto] sm:items-end">
       <input type="hidden" name="supplyId" value={supplyId} />
       <Field label="Товар" error={e.productId}>
         <select name="productId" required defaultValue="" className={inputClass}>
@@ -102,10 +86,10 @@ export function AddSupplyItemForm({ supplyId, products }: { supplyId: string; pr
 }
 
 export function SupplyItemEditForm({ itemId, expectedQty, preorderLimit }: { itemId: string; expectedQty: number | null; preorderLimit: number | null }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(updateSupplyItemAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(updateSupplyItemAction);
   const err = state.fieldErrors ? Object.values(state.fieldErrors)[0] : state.error;
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2">
+    <form ref={formRef} onSubmit={onSubmit} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="itemId" value={itemId} />
       <input name="expectedQty" type="number" min={1} required defaultValue={expectedQty ?? ''} aria-label="Заказано" className={`${inputClass} w-20 py-1 text-right font-mono`} />
       <input name="preorderLimit" type="number" min={0} defaultValue={preorderLimit ?? ''} placeholder="∞" aria-label="Лимит предзаказа" className={`${inputClass} w-20 py-1 text-right font-mono`} />
@@ -127,15 +111,9 @@ export function ArrivalForm({
   supplyId: string;
   items: { id: string; label: string; unit: string; expectedQty: number | null; preordered: number }[];
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(receiveSupplyAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(receiveSupplyAction, { confirm: 'Добавить указанное количество на склад? Это действие нельзя отменить.' });
   return (
-    <form
-      action={action}
-      className="space-y-4"
-      onSubmit={(e) => {
-        if (!window.confirm('Добавить указанное количество на склад? Это действие нельзя отменить.')) e.preventDefault();
-      }}
-    >
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-4">
       <input type="hidden" name="supplyId" value={supplyId} />
       {state.error && <Alert tone="error">{state.fieldErrors ? Object.values(state.fieldErrors)[0] : state.error}</Alert>}
       <div className="overflow-hidden rounded-lg border bg-card">
@@ -182,10 +160,10 @@ export function ArrivalForm({
 // ───────── Предзаказ (менеджер қолмен қосады) ─────────
 
 export function PreOrderForm({ supplyId, products }: { supplyId: string; products: Opt[] }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(createPreOrderAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(createPreOrderAction, { resetOnSuccess: true });
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="grid gap-3 sm:grid-cols-2">
+    <form ref={formRef} onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="supplyId" value={supplyId} />
       <Field label="Телефон WhatsApp *" error={e.phone}>
         <input name="phone" required inputMode="tel" placeholder="+7 701 123 45 67" className={inputClass} />
@@ -237,9 +215,9 @@ export function ConvertPreOrderForm({
   preOrderId: string;
   items: { productId: string; label: string; quantity: number; available: number }[];
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(convertPreOrderAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(convertPreOrderAction);
   return (
-    <form action={action} className="space-y-2">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-2">
       <input type="hidden" name="supplyId" value={supplyId} />
       <input type="hidden" name="preOrderId" value={preOrderId} />
       {items.map((i) => (

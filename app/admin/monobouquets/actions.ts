@@ -41,7 +41,7 @@ export async function updateMonobouquetAction(_prev: ActionState, fd: FormData):
   try {
     await updateMonobouquet(
       String(fd.get('id') ?? ''),
-      { status: fd.get('status'), quotedPrice: fd.get('quotedPrice'), comment: fd.get('comment') },
+      { status: fd.get('status'), quotedPrice: fd.get('quotedPrice'), managerNote: fd.get('managerNote') },
       admin.id,
     );
   } catch (e) {

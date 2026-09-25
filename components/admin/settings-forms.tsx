@@ -1,16 +1,16 @@
 'use client';
 
-import { useActionState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { saveCategoryAction, saveSettingsAction } from '@/app/admin/settings/actions';
 import { Alert, Button, Field, inputClass } from '@/components/ui';
-import type { ActionState } from '@/lib/action-state';
+import { useFormAction } from '@/lib/use-form-action';
 
 /** Бір баптау бөлімінің формасы: өрістер children арқылы беріледі. */
 export function SettingsSection({ section, children }: { section: string; children: ReactNode }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveSettingsAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(saveSettingsAction);
   const fieldError = state.fieldErrors ? Object.values(state.fieldErrors)[0] : undefined;
   return (
-    <form action={action} className="space-y-3">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-3">
       <input type="hidden" name="section" value={section} />
       {children}
       {state.error && <Alert tone="error">{fieldError ?? state.error}</Alert>}
@@ -23,10 +23,10 @@ export function SettingsSection({ section, children }: { section: string; childr
 }
 
 export function CategoryForm({ category }: { category?: { id: string; name: string; emoji: string | null; allowMonobouquet: boolean } }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveCategoryAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(saveCategoryAction, { resetOnSuccess: !category });
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="flex flex-wrap items-end gap-2">
+    <form ref={formRef} onSubmit={onSubmit} className="flex flex-wrap items-end gap-2">
       {category && <input type="hidden" name="id" value={category.id} />}
       <Field label="Эмодзи" error={e.emoji} className="w-16">
         <input name="emoji" defaultValue={category?.emoji ?? ''} maxLength={8} className={`${inputClass} text-center`} />

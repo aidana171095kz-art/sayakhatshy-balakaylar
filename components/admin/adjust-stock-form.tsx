@@ -1,16 +1,15 @@
 'use client';
 
-import { useActionState } from 'react';
 import { adjustStockAction } from '@/app/admin/stock/actions';
 import { Alert, Button, Field, inputClass } from '@/components/ui';
-import type { ActionState } from '@/lib/action-state';
+import { useFormAction } from '@/lib/use-form-action';
 import { STOCK_REASON } from '@/lib/labels';
 
 export function AdjustStockForm({ productId, unit }: { productId: string; unit: string }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(adjustStockAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(adjustStockAction, { resetOnSuccess: true });
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-3">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-3">
       <input type="hidden" name="productId" value={productId} />
       {state.error && <Alert tone="error">{state.error}</Alert>}
       {state.ok && <Alert tone="success">✅ {state.ok}</Alert>}

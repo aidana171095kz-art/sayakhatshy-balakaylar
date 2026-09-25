@@ -1,9 +1,8 @@
 'use client';
 
-import { useActionState } from 'react';
 import { updatePricesAction } from '@/app/admin/prices/actions';
 import { Button, inputClass } from '@/components/ui';
-import type { ActionState } from '@/lib/action-state';
+import { useFormAction } from '@/lib/use-form-action';
 
 export function PriceRow({
   productId,
@@ -20,9 +19,9 @@ export function PriceRow({
   pricePerUnit: number | null;
   pricePerPackage: number | null;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(updatePricesAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(updatePricesAction);
   return (
-    <form action={action} className="grid gap-2 px-4 py-3 md:grid-cols-[1fr_9rem_9rem_7rem] md:items-center">
+    <form ref={formRef} onSubmit={onSubmit} className="grid gap-2 px-4 py-3 md:grid-cols-[1fr_9rem_9rem_7rem] md:items-center">
       <input type="hidden" name="productId" value={productId} />
       <div>
         <div className="font-medium">{label}</div>

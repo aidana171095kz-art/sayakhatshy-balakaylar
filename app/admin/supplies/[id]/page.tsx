@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import {
   AddSupplyItemForm,
-  ConfirmButton,
   ConvertPreOrderForm,
   PreOrderForm,
   SupplyForm,
@@ -16,6 +15,7 @@ import { prisma } from '@/server/db';
 import { productLabel } from '@/server/services/products';
 import { OPEN_STATUSES, allowedActions, getSupply, preorderTotals } from '@/server/services/supplies';
 import { preOrderStatusAction, removeSupplyItemAction, supplyStatusAction } from '../actions';
+import { SubmitButton } from '@/components/admin/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,13 +41,9 @@ function StatusButton({ id, action, children, variant = 'secondary', confirm }: 
     <form action={supplyStatusAction}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="action" value={action} />
-      {confirm ? (
-        <ConfirmButton message={confirm} className={buttonClass(variant)}>
-          {children}
-        </ConfirmButton>
-      ) : (
-        <button className={buttonClass(variant)}>{children}</button>
-      )}
+      <SubmitButton confirm={confirm} pendingText="Сохранение…" className={buttonClass(variant)}>
+        {children}
+      </SubmitButton>
     </form>
   );
 }
@@ -190,9 +186,9 @@ export default async function SupplyPage({ params, searchParams }: { params: Pro
                       <form action={removeSupplyItemAction}>
                         <input type="hidden" name="supplyId" value={id} />
                         <input type="hidden" name="itemId" value={i.id} />
-                        <ConfirmButton message="Убрать товар из поставки?" className="text-muted-foreground hover:text-destructive">
+                        <SubmitButton confirm="Убрать товар из поставки?" pendingText="…" className="text-muted-foreground hover:text-destructive">
                           ✕
-                        </ConfirmButton>
+                        </SubmitButton>
                       </form>
                     )}
                   </span>
@@ -259,18 +255,18 @@ export default async function SupplyPage({ params, searchParams }: { params: Pro
                         <input type="hidden" name="supplyId" value={id} />
                         <input type="hidden" name="preOrderId" value={po.id} />
                         <input type="hidden" name="action" value="CONFIRM" />
-                        <button className={buttonClass('secondary', 'sm')} title="Менеджер связался с клиентом и подтвердил">
+                        <SubmitButton pendingText="…" className={buttonClass('secondary', 'sm')} title="Менеджер связался с клиентом и подтвердил">
                           Подтвердить
-                        </button>
+                        </SubmitButton>
                       </form>
                     )}
                     <form action={preOrderStatusAction}>
                       <input type="hidden" name="supplyId" value={id} />
                       <input type="hidden" name="preOrderId" value={po.id} />
                       <input type="hidden" name="action" value="CANCEL" />
-                      <ConfirmButton message={`Отменить предзаказ ${po.number}?`} className={buttonClass('danger', 'sm')}>
+                      <SubmitButton confirm={`Отменить предзаказ ${po.number}?`} pendingText="…" className={buttonClass('danger', 'sm')}>
                         Отменить
-                      </ConfirmButton>
+                      </SubmitButton>
                     </form>
                   </div>
                 </div>

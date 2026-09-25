@@ -500,7 +500,10 @@ model MonobouquetRequest {
   size        String?
   wrapping    String?
   neededBy    DateTime?         @db.Date
+  /// Клиенттің бастапқы комментарийі — админ панельде тек оқылады, ешқашан үстінен жазылмайды
   comment     String?
+  /// Менеджердің ішкі жазбасы (клиентке көрсетілмейді)
+  managerNote String?
   status      MonobouquetStatus @default(NEW)
   /// Админ енгізеді; тек осыдан кейін клиентке көрсетіледі
   quotedPrice Int?

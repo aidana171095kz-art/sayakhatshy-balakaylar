@@ -1,10 +1,10 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 import type { Category, Product, Stock } from '@prisma/client';
 import { saveProductAction } from '@/app/admin/products/actions';
 import { Alert, Button, Field, LinkButton, inputClass } from '@/components/ui';
-import type { ActionState } from '@/lib/action-state';
+import { useFormAction } from '@/lib/use-form-action';
 import { PhotoInput } from './photo-input';
 
 type P = Product & { stock: Stock | null };
@@ -20,13 +20,13 @@ export function ProductForm({
   blobReady: boolean;
   globalThreshold: number;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveProductAction, {});
+  const { state, pending, formRef, onSubmit } = useFormAction(saveProductAction);
   const [saleUnit, setSaleUnit] = useState(product?.saleUnit ?? 'PACKAGE');
   const e = state.fieldErrors ?? {};
   const v = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n));
 
   return (
-    <form action={action} className="space-y-6">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-6">
       {product && <input type="hidden" name="id" value={product.id} />}
       {state.error && <Alert tone="error">{state.error}</Alert>}
 
