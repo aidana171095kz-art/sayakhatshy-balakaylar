@@ -131,6 +131,11 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   check('16: билет мазмұны Word-тағыдай', ['САЯХАТШЫ БИЛЕТІ', 'Қазақстан бойынша виртуалды саяхат', 'Оқушының аты', 'Астана → Бурабай → Алматы', 'Жинаған балл', 'Менің сүйікті бағытым'].every((x) => s16.includes(x)));
   check('16: аты мен сүйікті бағыт', (await page.getByTestId('student-name').inputValue()) === 'Айгерім' && (await page.getByTestId('favorite-Алматы').getAttribute('aria-pressed')) === 'true');
   check('16: соңғы экранда «Келесі» жоқ', (await page.getByText('Келесі').count()) === 0);
+  await page.getByTestId('open-sheet').click(); await page.waitForTimeout(700);
+  const sheetRows = await page.locator('[data-testid^="sheet-row-"]').evaluateAll((rs) => rs.map((r) => [...r.children].map((c) => c.textContent.trim()).join('|')));
+  check(`16: БАҒАЛАУ ПАРАҒЫ Word-тағыдай, «Менің баллым» state-тен: ${JSON.stringify(sheetRows)}`,
+    JSON.stringify(sheetRows) === JSON.stringify(['Саяхатшының сөмкесі|2|0', 'Астана: Суретті таны|2|0', 'Бурабай: Не көріп тұрсың?|2|2', 'Артық сөзді тап|1|0', 'Алматы: Дұрыс/бұрыс|2|0', 'Сиқырлы билет|1|1'])
+    && (await page.getByTestId('sheet-total').textContent()).trim() === '3');
   await page.screenshot({ path: `${out}/s16-final-${vw}.png` });
 
   check(`console/page errors: ${errors.length ? errors : 'none'}`, errors.length === 0);

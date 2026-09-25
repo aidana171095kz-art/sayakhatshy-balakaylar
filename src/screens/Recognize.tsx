@@ -8,6 +8,7 @@ import { NavBar } from '../components/NavBar';
 import { useStageDrag } from '../components/useStageDrag';
 import { lesson } from '../content/lesson';
 import { useAutoScore, useGame, useScreenState } from '../game/GameProvider';
+import { RECOGNIZE_ANSWERS } from '../content/decisions';
 
 const SCREEN = 5;
 
@@ -26,6 +27,8 @@ const NAME_ORDER: Name[] = ['Ақорда', 'Хан Шатыр', 'Бәйтере
 interface RecognizeState {
   /** Дұрыс сәйкестендірілген суреттер */
   matched: Name[];
+  /** 3 сұраққа берілген дұрыс жауаптар (қате жауап сақталмайды — қайта таңдайды) */
+  answers?: (string | null)[];
 }
 
 const spring = { type: 'spring', stiffness: 240, damping: 20 } as const;
@@ -45,6 +48,20 @@ export function Recognize() {
   const allDone = data.matched.length === PICTURES.length;
   // Автоматты балл: үш сурет те дұрыс сәйкестендірілді → «көрікті орынды атайды» 1
   useAutoScore('recognize', 'named', allDone ? 1 : 0);
+  // Үш сұраққа да дұрыс жауап → «сұраққа толық жауап береді» 1
+  const answers = data.answers ?? [null, null, null];
+  const [wrongAnswer, setWrongAnswer] = useState<{ q: number; opt: string; n: number } | null>(null);
+  useAutoScore('recognize', 'answer', answers.every((a, i) => a === RECOGNIZE_ANSWERS[i].correct) ? 1 : 0);
+  useEffect(() => {
+    if (!wrongAnswer) return;
+    const t = setTimeout(() => setWrongAnswer(null), 900);
+    return () => clearTimeout(t);
+  }, [wrongAnswer]);
+  const choose = (q: number, opt: string) => {
+    if (answers[q]) return;
+    if (opt === RECOGNIZE_ANSWERS[q].correct) setData({ ...data, answers: answers.map((a, i) => (i === q ? opt : a)) });
+    else setWrongAnswer({ q, opt, n: Date.now() });
+  };
 
   // Reset кезінде таңдау да тазаланады
   useEffect(() => {
@@ -54,7 +71,7 @@ export function Recognize() {
   const tryMatch = (name: Name, pic: Name) => {
     if (data.matched.includes(pic)) return;
     if (name === pic) {
-      setData({ matched: [...data.matched, pic] });
+      setData({ ...data, matched: [...data.matched, pic] });
       setSelected(null);
     } else {
       setWrongAt({ pic, n: Date.now() });
@@ -74,7 +91,7 @@ export function Recognize() {
         {lesson.recognize.task}
       </motion.p>
 
-      <div className="absolute left-[420px] top-[225px] flex gap-8">
+      <div className="absolute left-[420px] top-[215px] flex gap-8">
         {PICTURES.map((p, i) => (
           <PictureCard
             key={p.name}
@@ -88,7 +105,7 @@ export function Recognize() {
         ))}
       </div>
 
-      <div className="absolute left-[420px] top-[640px] flex h-[96px] w-[1440px] items-center justify-center gap-8" data-testid="names">
+      <div className="absolute left-[420px] top-[562px] flex h-[96px] w-[1440px] items-center justify-center gap-8" data-testid="names">
         <AnimatePresence>
           {NAME_ORDER.filter((n) => !data.matched.includes(n)).map((n) => (
             <NameChip
@@ -108,17 +125,39 @@ export function Recognize() {
         )}
       </div>
 
-      <section className="card absolute left-[420px] top-[760px] w-[1440px] px-10 py-5" data-testid="questions">
-        <ol className="flex justify-between gap-6 text-[34px] font-extrabold text-ink">
-          {lesson.recognize.questions.map((q, i) => (
-            <li key={q} className="flex items-center gap-3">
-              <span className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-sky-100 text-[26px] font-black text-sea">
-                {i + 1}
-              </span>
+      <section className="card absolute left-[420px] top-[680px] flex w-[1440px] flex-col gap-3 px-8 py-4" data-testid="questions">
+        {lesson.recognize.questions.map((q, i) => (
+          <div key={q} className="flex items-center justify-between gap-6" data-testid={`question-${i}`}>
+            <p className="flex items-center gap-3 whitespace-nowrap text-[32px] font-extrabold leading-tight text-ink">
+              <span className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full bg-sky-100 text-[24px] font-black text-sea">{i + 1}</span>
               {q}
-            </li>
-          ))}
-        </ol>
+              {i === 0 && <Asset id="landmark.baiterek" className="h-[54px] w-[54px]" />}
+            </p>
+            <div className="flex shrink-0 gap-3">
+              {RECOGNIZE_ANSWERS[i].options.map((opt) => {
+                const done = answers[i] === opt;
+                const wrong = wrongAnswer?.q === i && wrongAnswer.opt === opt;
+                return (
+                  <motion.button
+                    key={`${opt}-${wrong ? wrongAnswer!.n : 0}`}
+                    type="button"
+                    data-testid={`answer-${i}-${opt}`}
+                    data-state={done ? 'correct' : wrong ? 'wrong' : 'idle'}
+                    disabled={!!answers[i] && !done}
+                    animate={wrong ? { x: [0, -10, 10, -6, 6, 0] } : undefined}
+                    transition={{ duration: 0.4 }}
+                    onClick={() => choose(i, opt)}
+                    className={`min-w-[150px] rounded-full px-6 py-2 text-[30px] font-extrabold shadow-card transition-colors disabled:opacity-40 ${
+                      done ? 'bg-ok text-white' : wrong ? 'bg-no text-white' : 'bg-sky-100 text-ink hover:bg-sky-200'
+                    }`}
+                  >
+                    {opt}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </section>
 
       <motion.div
@@ -185,13 +224,13 @@ function PictureCard({
         data-state={matched ? 'matched' : wrong ? 'wrong' : 'idle'}
         animate={shake}
         onClick={onTap}
-        className={`card flex h-[400px] w-[450px] flex-col items-center justify-between px-6 pb-5 pt-4 transition-colors ${
+        className={`card flex h-[330px] w-[450px] flex-col items-center justify-between px-6 pb-4 pt-3 transition-colors ${
           matched ? 'border-ok bg-[#E6F8EC]' : wrong ? 'border-no bg-[#FFE4E7] ring-4 ring-no/40' : highlight ? 'ring-4 ring-sun' : ''
         }`}
       >
-        <Asset id={picture.asset} className="pointer-events-none h-[270px] w-full" />
+        <Asset id={picture.asset} className="pointer-events-none h-[215px] w-full" />
         <div
-          className={`flex h-[84px] w-full items-center justify-center rounded-chip text-[40px] font-black ${
+          className={`flex h-[76px] w-full items-center justify-center rounded-chip text-[38px] font-black ${
             matched ? 'bg-ok text-white' : 'border-4 border-dashed border-sky-300 bg-sky-100/60 text-transparent'
           }`}
         >

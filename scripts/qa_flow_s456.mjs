@@ -36,7 +36,8 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
 
   // ── SCREEN 5 ──
   await open(5);
-  check('5: 3 сұрақ Word-тағыдай', (await text('questions')) === '1 Бұл не? 2 Бәйтерек қай қалада орналасқан? 3 Астана қандай қала?');
+  const qs = await Promise.all([0, 1, 2].map(async (i) => (await page.getByTestId(`question-${i}`).locator('p').textContent()).replace(/\s+/g, ' ').trim()));
+  check(`5: 3 сұрақ Word-тағыдай: ${JSON.stringify(qs)}`, JSON.stringify(qs) === JSON.stringify(['1Бұл не?', '2Бәйтерек қай қалада орналасқан?', '3Астана қандай қала?']));
   check('5: үлгі бастапқыда жабық', (await page.getByTestId('example').count()) === 0);
   await drag('name-Ақорда', 'pic-0');
   check('5: қате (Ақорда → Бәйтерек суреті) → қызыл', (await st('pic-0')) === 'wrong');
@@ -50,6 +51,11 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   check('5: барлығы сәйкестендірілді', (await st('pic-1')) === 'matched' && (await st('pic-2')) === 'matched' && (await page.locator('[data-testid^="name-"]').count()) === 0);
   check(`5: үш сурет дұрыс → автоматты 1 балл → ${await score()}`, (await score()) === '1 / 10');
   await page.screenshot({ path: `${out}/s5-done-${vw}.png` });
+  await page.getByTestId('answer-1-Алматы').click(); await page.waitForTimeout(300);
+  check('5: қате жауап (Алматы) → қызыл, балл қосылмайды', (await st('answer-1-Алматы')) === 'wrong' && (await score()) === '1 / 10');
+  await page.getByTestId('answer-0-Бәйтерек').click(); await page.getByTestId('answer-1-Астана').click(); await page.getByTestId('answer-2-әдемі').click();
+  await page.waitForTimeout(600);
+  check(`5: үш сұраққа дұрыс жауап → автоматты 2 балл (max 2) → ${await score()}`, (await score()) === '2 / 10' && (await st('answer-2-әдемі')) === 'correct');
   await teacher();
   await page.getByText('Үлгіні көрсету').click(); await page.waitForTimeout(400);
   check('5: мұғалім үлгіні ашады', (await text('example')) === 'Үлгі жауап: «Бұл — Бәйтерек. Бәйтерек Астанада орналасқан. Астана — әдемі қала.»');

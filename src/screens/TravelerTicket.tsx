@@ -1,9 +1,11 @@
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useState } from 'react';
 import { Asset } from '../components/Asset';
 import { NavBar } from '../components/NavBar';
 import { lesson } from '../content/lesson';
 import { useGame, useScreenState } from '../game/GameProvider';
-import { MAX_TOTAL } from '../game/tasks';
+import { taskScore } from '../game/state';
+import { MAX_TOTAL, TASK_ORDER } from '../game/tasks';
 
 const SCREEN = 16;
 
@@ -14,7 +16,8 @@ const spring = { type: 'spring', stiffness: 200, damping: 18 } as const;
  * жинаған балл (орталық state-тен — ешқашан бөлек есептелмейді), менің сүйікті бағытым.
  */
 export function TravelerTicket() {
-  const { total } = useGame();
+  const { total, state } = useGame();
+  const [sheet, setSheet] = useState(false);
   const [data, setData] = useScreenState<{ name: string; favorite: string }>(SCREEN, { name: '', favorite: '' });
   const t = lesson.travelerTicket;
 
@@ -99,7 +102,65 @@ export function TravelerTicket() {
         <Asset id="girl.ticket" className="h-full drop-shadow-[0_20px_20px_rgba(18,53,91,.3)]" />
       </motion.div>
 
-      <NavBar />
+      {/* Word-тағы «БАҒАЛАУ ПАРАҒЫ»: Тапсырма | Балл | Менің баллым (орталық state-тен) */}
+      <AnimatePresence>
+        {sheet && (
+          <motion.div
+            className="absolute inset-0 z-30 flex items-center justify-center bg-ink/45 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSheet(false)}
+          >
+            <motion.div
+              className="card w-[1100px] px-14 py-10"
+              data-testid="assessment-sheet"
+              initial={{ scale: 0.8, y: 40 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={spring}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="mb-6 text-center text-[56px] font-black tracking-tight text-sea">{lesson.assessment.title}</h2>
+              <table className="w-full text-[34px]">
+                <thead>
+                  <tr className="bg-sky-100 text-left">
+                    {lesson.assessment.columns.map((c, i) => (
+                      <th key={c} className={`whitespace-nowrap px-5 py-3 font-extrabold text-ink ${i ? 'w-[240px] text-center' : ''}`}>
+                        {c}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {TASK_ORDER.map((t, i) => (
+                    <tr key={t} className="border-b-2 border-line" data-testid={`sheet-row-${t}`}>
+                      <td className="px-5 py-3 font-bold text-ink">{lesson.assessment.rows[i].label}</td>
+                      <td className="px-5 py-3 text-center font-bold tabular-nums text-ink-soft">{lesson.assessment.rows[i].max}</td>
+                      <td className="px-5 py-3 text-center font-black tabular-nums text-sea">{taskScore(state, t)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td className="px-5 py-4 font-black text-ink">{lesson.assessment.total}</td>
+                    <td className="px-5 py-4 text-center font-black tabular-nums text-ink">{MAX_TOTAL}</td>
+                    <td className="px-5 py-4 text-center text-[44px] font-black tabular-nums text-sea" data-testid="sheet-total">
+                      {total}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <NavBar
+        center={
+          <button type="button" data-testid="open-sheet" className="btn3d btn-sea" onClick={() => setSheet(!sheet)}>
+            {sheet ? 'Жабу' : lesson.assessment.title}
+          </button>
+        }
+      />
     </div>
   );
 }

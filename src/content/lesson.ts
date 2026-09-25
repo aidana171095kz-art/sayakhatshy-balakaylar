@@ -188,6 +188,7 @@ export const lesson = {
 
   assessment: {
     title: 'БАҒАЛАУ ПАРАҒЫ',
+    columns: ['Тапсырма', 'Балл', 'Менің баллым'] as const,
     total: 'Барлығы',
     rows: [
       { label: 'Саяхатшының сөмкесі', max: 2 },
