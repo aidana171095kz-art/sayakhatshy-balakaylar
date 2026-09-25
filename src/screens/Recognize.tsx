@@ -7,7 +7,7 @@ import { CheckMark } from '../components/Marks';
 import { NavBar } from '../components/NavBar';
 import { useStageDrag } from '../components/useStageDrag';
 import { lesson } from '../content/lesson';
-import { useGame, useScreenState } from '../game/GameProvider';
+import { useAutoScore, useGame, useScreenState } from '../game/GameProvider';
 
 const SCREEN = 5;
 
@@ -43,6 +43,8 @@ export function Recognize() {
   const [over, setOver] = useState<string | null>(null);
   const revealed = !!state.revealed[SCREEN];
   const allDone = data.matched.length === PICTURES.length;
+  // Автоматты балл: үш сурет те дұрыс сәйкестендірілді → «көрікті орынды атайды» 1
+  useAutoScore('recognize', 'named', allDone ? 1 : 0);
 
   // Reset кезінде таңдау да тазаланады
   useEffect(() => {

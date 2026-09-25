@@ -90,4 +90,16 @@ describe('бағалау құрылымы', () => {
     expect(screenFromHash('#s99')).toBe(1);
     expect(screenFromHash('#x')).toBe(1);
   });
+  it('автоматты балл тек өседі, max-тан аспайды, қайталанбайды', () => {
+    let st = run([{ type: 'awardScore', task: 'trueFalse', criterion: 'distinguish', value: 1 }]);
+    expect(taskScore(st, 'trueFalse')).toBe(1);
+    st = reducer(st, { type: 'awardScore', task: 'trueFalse', criterion: 'distinguish', value: 1 });
+    st = reducer(st, { type: 'awardScore', task: 'trueFalse', criterion: 'distinguish', value: 0 });
+    expect(taskScore(st, 'trueFalse')).toBe(1);
+    st = reducer(st, { type: 'awardScore', task: 'trueFalse', criterion: 'distinguish', value: 9 });
+    expect(taskScore(st, 'trueFalse')).toBe(2);
+    // мұғалім түзете алады
+    st = reducer(st, { type: 'setScore', task: 'trueFalse', criterion: 'distinguish', value: 0 });
+    expect(taskScore(st, 'trueFalse')).toBe(0);
+  });
 });

@@ -10,7 +10,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   const check = (name, ok) => { results.push(ok); console.log(ok ? 'PASS' : 'FAIL', `[${vw}]`, name); };
   const states = async () => Promise.all([0, 1, 2].map((i) => page.getByTestId(`stop-${i}`).getAttribute('data-state')));
-  const score = async () => (await page.getByTestId('score').innerText()).replace(/\s+/g, ' ');
+  const score = async () => `${await page.getByTestId('score').getAttribute('data-total')} / 10`;
 
   await page.goto('http://localhost:4173/#s3');
   await page.reload(); await page.waitForTimeout(1200);

@@ -6,7 +6,7 @@ import { useStageDrag, type StageRect } from '../components/useStageDrag';
 import { BAG_NOT_NEEDED } from '../content/decisions';
 import { lesson } from '../content/lesson';
 import type { AssetId } from '../assets/manifest';
-import { useGame, useScreenState } from '../game/GameProvider';
+import { useAutoScore, useGame, useScreenState } from '../game/GameProvider';
 
 const SCREEN = 2;
 
@@ -65,6 +65,10 @@ export function Bag() {
   const bagShake = useAnimationControls();
   const revealed = !!state.revealed[SCREEN];
   const wrong = data.wrong ?? [];
+
+  // Автоматты балл: сөмкеде тек қажетті зат болады → 1; сөйлем құралды → 1
+  useAutoScore('bag', 'named', data.bag.length > 0 ? 1 : 0);
+  useAutoScore('bag', 'sentence', data.sentences.length > 0 ? 1 : 0);
 
   /** 'ok' — сөмкеге салынды; 'wrong' — қажет емес зат; 'skip' — бұрыннан сөмкеде */
   const putInBag = (w: Word, from: StageRect): 'ok' | 'wrong' | 'skip' => {

@@ -9,7 +9,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   const check = (name, ok) => { results.push(ok); console.log(ok ? 'PASS' : 'FAIL', `[${vw}]`, name); };
-  const score = async () => (await page.getByTestId('score').innerText()).replace(/\s+/g, ' ');
+  const score = async () => `${await page.getByTestId('score').getAttribute('data-total')} / 10`;
   const tc = async (id) => (await page.getByTestId(id).textContent()).replace(/\s+/g, ' ').trim();
   const st = async (id) => page.getByTestId(id).getAttribute('data-state');
   const stage = async () => (await page.locator('[data-stage]').textContent()).replace(/\s+/g, ' ');
@@ -34,7 +34,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   check('8: суреттен көл мен тау табылды', (await st('spot-көл')) === 'found' && (await st('spot-тау')) === 'found' && (await st('spot-орман')) === 'hidden');
   await page.getByTestId('found-көл').click(); await page.waitForTimeout(500);
   check(`8: сөйлем «${await tc('sentence')}»`, (await tc('sentence')) === 'Мен көл көріп тұрмын.');
-  check('8: үлгі жабық, балл 0', (await page.getByTestId('example').count()) === 0 && (await score()) === '0 / 10');
+  check(`8: үлгі жабық; 2 нысан + сөйлем → автоматты 2 балл → ${await score()}`, (await page.getByTestId('example').count()) === 0 && (await score()) === '2 / 10');
   await page.screenshot({ path: `${out}/s8-done-${vw}.png` });
   await teacher();
   await page.getByText('Үлгіні көрсету').click();
@@ -46,7 +46,9 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   await open(9);
   check('9: 12 сөз Word ретімен', JSON.stringify(await page.locator('[data-testid^="odd-"][data-state]').evaluateAll((e) => e.map((x) => x.textContent))) === JSON.stringify(['көл', 'тау', 'орман', 'мектеп', 'ағаш', 'гүл', 'шөп', 'дәптер', 'әдемі', 'таза', 'көрікті', 'жазады']));
   await page.getByTestId('odd-0-мектеп').click(); await page.getByTestId('odd-0-тау').click(); await page.getByTestId('odd-1-дәптер').click(); await page.waitForTimeout(300);
-  check('9: әр жолда бір ғана таңдау', (await st('odd-0-тау')) === 'picked' && (await st('odd-0-мектеп')) === 'idle' && (await st('odd-1-дәптер')) === 'picked');
+  check('9: әр жолда бір таңдау; қате — қызыл, дұрыс — жасыл; балл әлі жоқ', (await st('odd-0-тау')) === 'wrong' && (await st('odd-0-мектеп')) === 'idle' && (await st('odd-1-дәптер')) === 'correct' && (await score()) === '0 / 10');
+  await page.getByTestId('odd-0-мектеп').click(); await page.getByTestId('odd-2-жазады').click(); await page.waitForTimeout(400);
+  check(`9: үш жол дұрыс → автоматты 1 балл → ${await score()}`, (await score()) === '1 / 10');
   await teacher();
   for (let i = 0; i < 4; i++) await page.getByTestId('score-oddWord-found-1').click();
   await page.waitForTimeout(300);
@@ -76,7 +78,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   check(`12: тексеру Word жауаптарымен: ${rows}`, JSON.stringify(rows) === JSON.stringify(['correct', 'correct', 'wrong', 'correct', 'correct']));
   await page.getByTestId('tf-2-false').click({ force: true }); await page.waitForTimeout(300);
   check('12: тексерілген соң жауап өзгермейді, «Тексеру» жоқ', (await page.getByTestId('tf-2-true').getAttribute('aria-pressed')) === 'true' && (await st('tf-row-2')) === 'wrong' && (await page.getByTestId('check').count()) === 0);
-  check('12: тексеру балл қоспайды', (await score()) === '0 / 10');
+  check(`12: 4/5 дұрыс → автоматты 1 балл → ${await score()}`, (await score()) === '1 / 10');
   await page.screenshot({ path: `${out}/s12-checked-${vw}.png` });
   await teacher();
   for (const v of [2, 2, 1]) await page.getByTestId(`score-trueFalse-distinguish-${v}`).click();
@@ -100,7 +102,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   check(`14: билет ашылды, сұрақ Word-тағыдай: «${await tc('ticket-question')}»`, (await tc('ticket-question')) === 'Астанада қандай көрікті жер бар?');
   await page.screenshot({ path: `${out}/s14-open-${vw}.png` });
   await page.getByTestId('ticket-answered').click(); await page.waitForTimeout(700);
-  check('14: билет орындалды деп белгіленді', (await st('ticket-6')) === 'done' && (await page.getByTestId('ticket-open').count()) === 0);
+  check(`14: билет орындалды, автоматты 1 балл → ${await score()}`, (await st('ticket-6')) === 'done' && (await page.getByTestId('ticket-open').count()) === 0 && (await score()) === '1 / 10');
   await page.getByTestId('ticket-0').click(); await page.waitForTimeout(1200);
   check('14: 1-билет → 1-сұрақ', (await tc('ticket-question')) === 'Қазақстанның астанасы қай қала?');
   await page.getByTestId('ticket-answered').click(); await page.waitForTimeout(600);

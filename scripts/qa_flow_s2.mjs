@@ -12,7 +12,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   const bagWords = async () => page.locator('[data-testid^="bag-"]:not([data-testid="bag-drop"]):not([data-testid="bag-contents"])').evaluateAll((els) => els.map((e) => e.dataset.testid.slice(4)));
   const sentences = async () => page.locator('[data-testid^="sentence-"]:not([data-testid="sentence-slot"])').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
   const strip = async () => (await page.getByTestId('sentence').innerText()).replace(/\s+/g, ' ').trim();
-  const score = async () => (await page.getByTestId('score').innerText()).replace(/\s+/g, ' ');
+  const score = async () => `${await page.getByTestId('score').getAttribute('data-total')} / 10`;
   const drag = async (from, to) => {
     const a = await page.locator(from).boundingBox(); const b = await page.locator(to).boundingBox();
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down();
@@ -33,8 +33,9 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   await page.waitForTimeout(800);
   check('ұшу аяқталды, flight жоғалды', (await page.getByTestId('flight').count()) === 0);
   check('басу → карта сөмкеде, белгісі жасыл', JSON.stringify(await bagWords()) === '["карта"]' && (await page.getByTestId('item-карта').getAttribute('data-state')) === 'in-bag');
+  check(`қажетті зат → автоматты 1 балл → ${await score()}`, (await score()) === '1 / 10');
   await page.getByTestId('item-доп').click(); await page.waitForTimeout(600);
-  check('доп → қызыл (қате), сөмкеге түспейді', (await page.getByTestId('item-доп').getAttribute('data-state')) === 'wrong' && !(await bagWords()).includes('доп'));
+  check('доп → қызыл (қате), сөмкеге түспейді, балл қосылмайды', (await page.getByTestId('item-доп').getAttribute('data-state')) === 'wrong' && !(await bagWords()).includes('доп') && (await score()) === '1 / 10');
   await drag('[data-testid="item-балмұздақ"]', '[data-testid="bag-drop"]');
   check('балмұздақты рюкзакқа сүйреу → қызыл (қате), сөмкеге түспейді', (await page.getByTestId('item-балмұздақ').getAttribute('data-state')) === 'wrong' && !(await bagWords()).includes('балмұздақ'));
   await page.screenshot({ path: `${out}/s2-wrong-${vw}.png` });
@@ -63,7 +64,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   await page.getByTestId('sentence-slot').click(); await page.waitForTimeout(400);
   check(`сөйлем орнын басу тазалайды: "${await strip()}"`, (await strip()) === 'Мен саяхатқа аламын.');
   await page.getByTestId('bag-карта').click(); await page.waitForTimeout(400);
-  check('сөйлем әрекеті балл қоспайды (баллды мұғалім қояды)', (await score()) === '0 / 10');
+  check(`сөйлем құралды → автоматты 2 балл (max 2) → ${await score()}`, (await score()) === '2 / 10');
   await page.screenshot({ path: `${out}/s2-filled-${vw}.png` });
 
   await page.keyboard.press('Shift+T'); await page.waitForTimeout(500);

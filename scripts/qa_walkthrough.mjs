@@ -8,7 +8,7 @@ page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 const results = [];
 const check = (name, ok) => { results.push(ok); console.log(ok ? 'PASS' : 'FAIL', name); };
-const score = async () => (await page.getByTestId('score').innerText()).replace(/\s+/g, ' ');
+const score = async () => `${await page.getByTestId('score').getAttribute('data-total')} / 10`;
 const title = async () => (await page.locator('[data-stage] .absolute.inset-x-16.top-8').first().innerText()).split('\n').slice(0, 2).join(' ');
 const next = async () => { await page.getByText('Келесі', { exact: false }).last().click(); await page.waitForTimeout(900); };
 const teacherOpen = async () => { if (!(await page.getByTestId('teacher-panel').count())) { await page.keyboard.press('Shift+T'); await page.waitForTimeout(450); } };

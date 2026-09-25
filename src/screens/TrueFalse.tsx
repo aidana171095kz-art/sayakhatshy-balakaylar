@@ -4,7 +4,8 @@ import { CityBackdrop } from '../components/CityBackdrop';
 import { CheckMark, CrossMark } from '../components/Marks';
 import { NavBar } from '../components/NavBar';
 import { lesson } from '../content/lesson';
-import { useScreenState } from '../game/GameProvider';
+import { useAutoScore, useScreenState } from '../game/GameProvider';
+import { trueFalsePoints } from '../content/decisions';
 
 const SCREEN = 12;
 
@@ -24,6 +25,9 @@ const spring = { type: 'spring', stiffness: 260, damping: 20 } as const;
 export function TrueFalse() {
   const [data, setData] = useScreenState<TFState>(SCREEN, { answers: lesson.trueFalse.statements.map(() => null), checked: false });
   const allAnswered = data.answers.every((a) => a !== null);
+  // Автоматты балл «Тексеру»-ден кейін: 5/5 → 2, 3–4 → 1, одан аз → 0
+  const correct = data.answers.filter((a, i) => a === lesson.trueFalse.statements[i].answer).length;
+  useAutoScore('trueFalse', 'distinguish', data.checked ? trueFalsePoints(correct) : 0);
 
   const answer = (i: number, v: boolean) => {
     if (data.checked) return;

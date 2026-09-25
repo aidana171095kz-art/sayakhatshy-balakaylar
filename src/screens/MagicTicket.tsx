@@ -3,7 +3,7 @@ import { Asset } from '../components/Asset';
 import { CheckMark } from '../components/Marks';
 import { NavBar } from '../components/NavBar';
 import { lesson } from '../content/lesson';
-import { useScreenState } from '../game/GameProvider';
+import { useAutoScore, useScreenState } from '../game/GameProvider';
 
 const SCREEN = 14;
 
@@ -24,6 +24,8 @@ const spring = { type: 'spring', stiffness: 240, damping: 22 } as const;
 export function MagicTicket() {
   const [data, setData] = useScreenState<TicketState>(SCREEN, { open: null, done: [] });
   const q = data.open !== null ? lesson.ticket.questions[data.open] : null;
+  // Автоматты балл: бір билеттің сұрағына жауап берілді → 1 (бірнеше билет болса да max 1)
+  useAutoScore('ticket', 'answered', data.done.length > 0 ? 1 : 0);
 
   return (
     <div className="absolute inset-0 bg-journey">

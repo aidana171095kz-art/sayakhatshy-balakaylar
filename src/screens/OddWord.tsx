@@ -5,7 +5,7 @@ import { CheckMark, CrossMark } from '../components/Marks';
 import { NavBar } from '../components/NavBar';
 import { ODD_WORD_ANSWERS } from '../content/decisions';
 import { lesson } from '../content/lesson';
-import { useScreenState } from '../game/GameProvider';
+import { useAutoScore, useScreenState } from '../game/GameProvider';
 
 const SCREEN = 9;
 
@@ -23,6 +23,10 @@ const spring = { type: 'spring', stiffness: 260, damping: 20 } as const;
  */
 export function OddWord() {
   const [data, setData] = useScreenState<OddState>(SCREEN, { picked: lesson.oddWord.groups.map(() => null) });
+  // Автоматты балл: үш жолда да артық сөз дұрыс табылды → 1
+  const key = ODD_WORD_ANSWERS;
+  const allCorrect = !!key && data.picked.every((p, i) => p === key[i]);
+  useAutoScore('oddWord', 'found', allCorrect ? 1 : 0);
   const pick = (row: number, w: string) => setData({ picked: data.picked.map((p, i) => (i === row ? (p === w ? null : w) : p)) });
 
   return (

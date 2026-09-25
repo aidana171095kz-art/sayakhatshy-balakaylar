@@ -9,7 +9,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   const check = (name, ok) => { results.push(ok); console.log(ok ? 'PASS' : 'FAIL', `[${vw}]`, name); };
-  const score = async () => (await page.getByTestId('score').innerText()).replace(/\s+/g, ' ');
+  const score = async () => `${await page.getByTestId('score').getAttribute('data-total')} / 10`;
   const text = async (id) => (await page.getByTestId(id).innerText()).replace(/\s+/g, ' ').trim();
   const st = async (id) => page.getByTestId(id).getAttribute('data-state');
   const open = async (n) => {
@@ -48,7 +48,7 @@ for (const [vw, vh] of [[1920, 1080], [1024, 768]]) {
   await drag('name-Хан Шатыр', 'pic-2');
   await page.waitForTimeout(900); // атаулардың exit-анимациясы
   check('5: барлығы сәйкестендірілді', (await st('pic-1')) === 'matched' && (await st('pic-2')) === 'matched' && (await page.locator('[data-testid^="name-"]').count()) === 0);
-  check('5: сәйкестендіру балл қоспайды', (await score()) === '0 / 10');
+  check(`5: үш сурет дұрыс → автоматты 1 балл → ${await score()}`, (await score()) === '1 / 10');
   await page.screenshot({ path: `${out}/s5-done-${vw}.png` });
   await teacher();
   await page.getByText('Үлгіні көрсету').click(); await page.waitForTimeout(400);

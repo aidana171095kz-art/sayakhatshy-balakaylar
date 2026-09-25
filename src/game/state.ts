@@ -19,6 +19,8 @@ export const initialState: GameState = { screen: 1, scores: {}, screenState: {},
 export type Action =
   | { type: 'go'; screen: number }
   | { type: 'setScore'; task: TaskId; criterion: string; value: number }
+  /** Автоматты балл: тек өседі (бар балдан кем болса ғана ауыстырады), max-тан аспайды */
+  | { type: 'awardScore'; task: TaskId; criterion: string; value: number }
   | { type: 'setScreenState'; screen: number; value: unknown }
   | { type: 'reveal'; screen: number; value: boolean }
   | { type: 'resetScreen'; screen: number }
@@ -38,6 +40,11 @@ export function reducer(state: GameState, action: Action): GameState {
       const key = scoreKey(action.task, action.criterion);
       if ((state.scores[key] ?? 0) === value) return state;
       return { ...state, scores: { ...state.scores, [key]: value } };
+    }
+    case 'awardScore': {
+      const key = scoreKey(action.task, action.criterion);
+      if ((state.scores[key] ?? 0) >= action.value) return state;
+      return reducer(state, { type: 'setScore', task: action.task, criterion: action.criterion, value: action.value });
     }
     case 'setScreenState':
       return { ...state, screenState: { ...state.screenState, [action.screen]: action.value } };

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
+import type { TaskId } from './tasks';
 import { clearLegacyStorage, initialState, reducer, screenFromHash, totalScore, type Action, type GameState } from './state';
 
 interface GameContextValue {
@@ -36,4 +37,15 @@ export function useScreenState<T>(screen: number, fallback: T): [T, (v: T) => vo
   const { state, dispatch } = useGame();
   const value = (state.screenState[screen] as T | undefined) ?? fallback;
   return [value, (v: T) => dispatch({ type: 'setScreenState', screen, value: v })];
+}
+
+/**
+ * Автоматты балл: шарт орындалғанда критерийге балл береді (бір рет, тек өседі).
+ * Мұғалім Teacher Mode-та бәрібір өзгерте алады.
+ */
+export function useAutoScore(task: TaskId, criterion: string, value: number) {
+  const { dispatch } = useGame();
+  useEffect(() => {
+    if (value > 0) dispatch({ type: 'awardScore', task, criterion, value });
+  }, [dispatch, task, criterion, value]);
 }

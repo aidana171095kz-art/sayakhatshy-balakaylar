@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Asset } from '../components/Asset';
 import { NavBar } from '../components/NavBar';
 import { lesson } from '../content/lesson';
-import { useGame, useScreenState } from '../game/GameProvider';
+import { useAutoScore, useGame, useScreenState } from '../game/GameProvider';
 
 const SCREEN = 8;
 
@@ -33,6 +33,9 @@ export function Seeing() {
   const { state } = useGame();
   const [data, setData] = useScreenState<SeeingState>(SCREEN, { found: [], sentences: [] });
   const revealed = !!state.revealed[SCREEN];
+  // Автоматты балл: суреттен 2 нысан табылды → 1; сөйлем құралды → 1
+  useAutoScore('seeing', 'objects', data.found.length >= 2 ? 1 : 0);
+  useAutoScore('seeing', 'sentence', data.sentences.length > 0 ? 1 : 0);
 
   const find = (o: Obj) => {
     if (!data.found.includes(o)) setData({ ...data, found: [...data.found, o] });

@@ -7,7 +7,7 @@ const errors = [];
 page.on('response', (r) => r.status() >= 400 && errors.push(`${r.status()} ${r.url()}`));
 page.on('pageerror', (e) => errors.push(e.message));
 const check = (name, ok) => console.log(ok ? 'PASS' : 'FAIL', name);
-const score = async () => (await page.getByTestId('score').innerText()).replace(/\s+/g, ' ');
+const score = async () => `${await page.getByTestId('score').getAttribute('data-total')} / 10`;
 
 await page.goto('http://localhost:4173/');
 await page.evaluate(() => localStorage.clear());
