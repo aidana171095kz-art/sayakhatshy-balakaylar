@@ -1,5 +1,31 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS config file */
 /** @type {import('next').NextConfig} */
 const path = require('path');
+
+const isDev = process.env.NODE_ENV !== 'production';
+
+// XSS / clickjacking қорғанысы. Сыртқы скрипт жүктелмейді.
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+].join('; ');
+
+const securityHeaders = [
+  { key: 'Content-Security-Policy', value: csp },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  ...(isDev ? [] : [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]),
+];
 
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
@@ -12,16 +38,18 @@ const nextConfig = {
   // tracing. This project is not a monorepo here, so the tracing root is
   // simply this app's own directory.
   outputFileTracingRoot: __dirname,
+  // Типтердегі қате production-ға шықпауы керек.
   typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // Next 16's build-time lint check has no bearing on runtime correctness;
-    // keep it from blocking a production deploy the way `ignoreBuildErrors`
-    // already does for the TypeScript check above.
-    ignoreDuringBuilds: true,
+    ignoreBuildErrors: false,
   },
   images: { unoptimized: true },
+  // Тауар фотосы server action арқылы жүктеледі (браузер оны алдын ала кішірейтеді).
+  experimental: {
+    serverActions: { bodySizeLimit: '4.5mb' },
+  },
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders }];
+  },
 };
 
 const fs = require('fs');
