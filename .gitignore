@@ -1,41 +1,10 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/.build/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env
-.env*.local
-
-# typescript
+node_modules
+dist
+coverage
 *.tsbuildinfo
-next-env.d.ts
-
-# vercel
-.vercel
+.DS_Store
+*.log
+.env*
+# raw source images (processed copies live in src/assets)
+asset-src/
+dist-single
